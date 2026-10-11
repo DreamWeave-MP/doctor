@@ -110,7 +110,7 @@ findings:
   check: mesh
   plugins: []
   message: "meshes/doctor/rock.nif: truncated version line at offset 0"
-  fix: "`jess nif check` on the file for the details; `jess nif fix` repairs some"
+  fix: "`nif-assets check` on the file for the details; `nif-assets fix` repairs some"
   records:
   - STAT doctor_rock
   files:
@@ -152,7 +152,7 @@ findings:
   plugins:
   - Dirty.esp
   message: Dirty.esp has 1 evil GMST
-  fix: "`jess plugin clean <root>/data/Dirty.esp --evil-gmsts`"
+  fix: "`tes3cmd clean <root>/data/Dirty.esp --evil-gmsts`"
   details:
   - "GMST fWerewolfHealth at record 1 has Bloodmoon's default value"
 - severity: warning
@@ -160,7 +160,7 @@ findings:
   plugins:
   - Dirty.esp
   message: Dirty.esp has 1 junk cell
-  fix: "`jess plugin clean <root>/data/Dirty.esp --junk-cells`"
+  fix: "`tes3cmd clean <root>/data/Dirty.esp --junk-cells`"
   details:
   - CELL Doctor Junk at record 2
 - severity: info
@@ -168,7 +168,7 @@ findings:
   plugins:
   - B.esp
   message: "B.esp has 1 record identical to its masters' copies"
-  fix: "`jess plugin clean <root>/data/B.esp --duplicate-records`"
+  fix: "`tes3cmd clean <root>/data/B.esp --duplicate-records`"
   records:
   - STAT doctor_rock
 ]]
@@ -224,7 +224,7 @@ local JsonEnd = [[
         "B.esp"
       ],
       "message": "B.esp has 1 record identical to its masters' copies",
-      "fix": "`jess plugin clean <root>/data/B.esp --duplicate-records`",
+      "fix": "`tes3cmd clean <root>/data/B.esp --duplicate-records`",
       "records": [
         "STAT doctor_rock"
       ]
@@ -281,7 +281,7 @@ suite.describe('the harness\'s load order', function()
 
     local dirty = jess.fs.join(built.data, 'Dirty.esp')
     expect(find(report, 'evilGmsts', 'Dirty.esp has 1 evil GMST').fix).toBe(
-      `\`jess plugin clean {dirty} --evil-gmsts\``
+      `\`tes3cmd clean {dirty} --evil-gmsts\``
     )
     find(report, 'junkCells', 'Dirty.esp has 1 junk cell')
     find(report, 'identicalToMaster', 'B.esp has 1 record identical')
@@ -289,7 +289,7 @@ suite.describe('the harness\'s load order', function()
 
     local mesh = find(report, 'mesh', 'meshes/doctor/rock.nif')
     expect(mesh.severity).toBe 'error'
-    expect(has(mesh.fix, 'jess nif check')).toBe(true)
+    expect(has(mesh.fix, 'nif-assets check')).toBe(true)
 
     -- Most severe first.
     local ranks = { error = 1, warning = 2, info = 3 }
@@ -416,7 +416,7 @@ end
 suite.describe('dirt', function()
   -- Each message is the one jess-omwaddon's lint wrote for the check (`lint.rs` in jess's
   -- history), which the doctor lists as the finding's details.
-  suite.it('is each kind `jess plugin clean` removes, with the lint\'s own words', function()
+  suite.it('is each kind `tes3cmd clean` removes, with the lint\'s own words', function()
     local dirty = tes3.new()
     dirty:setMasters { { name = 'Base.esm', size = 1 } }
     for _, record in {
@@ -462,7 +462,7 @@ suite.describe('dirt', function()
         plugins = { 'Dirty.esp' },
         details = { 'GMST fWerewolfHealth at record 4 has Bloodmoon\'s default value' },
         message = 'Dirty.esp has 1 evil GMST',
-        fix = `\`jess plugin clean {path} --evil-gmsts\``,
+        fix = `\`tes3cmd clean {path} --evil-gmsts\``,
       },
       {
         severity = 'warning',
@@ -470,7 +470,7 @@ suite.describe('dirt', function()
         plugins = { 'Dirty.esp' },
         details = { 'CELL Junk at record 6' },
         message = 'Dirty.esp has 1 junk cell',
-        fix = `\`jess plugin clean {path} --junk-cells\``,
+        fix = `\`tes3cmd clean {path} --junk-cells\``,
       },
       {
         severity = 'warning',
@@ -482,7 +482,7 @@ suite.describe('dirt', function()
           'STAT TWICE at record 3 duplicates record 2',
         },
         message = 'Dirty.esp has 2 records it defines twice',
-        fix = `\`jess plugin clean {path} --duplicate-records\``,
+        fix = `\`tes3cmd clean {path} --duplicate-records\``,
       },
       {
         severity = 'info',
@@ -490,7 +490,7 @@ suite.describe('dirt', function()
         plugins = { 'Dirty.esp' },
         details = { 'duplicate DATA in CELL record 8' },
         message = 'Dirty.esp has 1 repeated cell setting',
-        fix = `\`jess plugin clean {path} --cell-params\``,
+        fix = `\`tes3cmd clean {path} --cell-params\``,
       },
     }
   end)
@@ -510,7 +510,7 @@ suite.describe('dirt', function()
     expect(#report.findings).toBe(1)
     expect(report.findings[1].plugins).toEqual { 'My Mod.esp' }
     expect(report.findings[1].fix).toBe(
-      `\`jess plugin clean "{jess.fs.join(built.data, 'My Mod.esp')}" --evil-gmsts\``
+      `\`tes3cmd clean "{jess.fs.join(built.data, 'My Mod.esp')}" --evil-gmsts\``
     )
     expect(report.plugins).toBe(4)
   end)
@@ -533,7 +533,7 @@ suite.describe('dirt', function()
         -- In the order the load order first defines them.
         records = { 'STAT rock', 'MISC gem' },
         message = 'Named.esp has 2 records identical to its masters\' copies',
-        fix = `\`jess plugin clean {jess.fs.join(built.data, 'Named.esp')} --duplicate-records\``,
+        fix = `\`tes3cmd clean {jess.fs.join(built.data, 'Named.esp')} --duplicate-records\``,
       },
     }
 
@@ -559,7 +559,7 @@ suite.describe('masters', function()
         check = 'masterSize',
         plugins = { 'Wrong.esp', 'Base.esm' },
         message = `Wrong.esp records Base.esm as 7 bytes; it's {size}`,
-        fix = `\`jess plugin header {jess.fs.join(built.data, 'Wrong.esp')} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
+        fix = `\`tes3cmd header {jess.fs.join(built.data, 'Wrong.esp')} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
       },
     }
 
@@ -689,7 +689,7 @@ suite.describe('assets and models', function()
       ['textures/tx_plain.bmp'] = '',
     }, { 'Mod.esp' })
     local report = order.check(built, { checks = { 'meshes' } }).report
-    local fix = '`jess nif check` on the file for the details; `jess nif fix` repairs some'
+    local fix = '`nif-assets check` on the file for the details; `nif-assets fix` repairs some'
     expect(report.findings).toEqual {
       {
         severity = 'error',

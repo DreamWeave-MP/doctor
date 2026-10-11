@@ -17,9 +17,10 @@ Afterwards `state.doctor.report` holds the report written: { config, output, bac
 plugins, checks, summary, findings }, each finding { severity, check, plugins, records, files,
 details, message, fix }.
 
-The report names the merge by its command, `tes3merge`. The commands its other fixes name
-(`jess plugin clean`, `jess plugin header`, `jess nif check`, `jess nif fix`) are the jess command
-line's of the time the doctor was written, and jess no longer has them.
+The report names its fixes by the commands that make them: `tes3merge`, `tes3cmd clean` and
+`tes3cmd header` (the `tes3cmd` package's), and `nif-assets check` and `nif-assets fix`. Two of
+them know less than the doctor: `tes3cmd header --update-masters` and `tes3cmd clean
+--duplicate-records` look for a plugin's masters beside it, not through the load order.
 ]]
 
 local fs = require '@dream/fs'
@@ -66,7 +67,7 @@ export type Options = {
 
 type Loaded = loadOrder.Loaded
 
--- A kind of dirt `jess plugin clean` removes: `what` for one, `whats` for more (`what` + s).
+-- A kind of dirt `tes3cmd clean` removes: `what` for one, `whats` for more (`what` + s).
 type Dirt = { flag: string, severity: Level, what: string, whats: string? }
 
 type Conflict = { loser: string, winner: string, records: { string }, manual: number }
@@ -190,7 +191,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   -- nobody should clean them.
   local Official = set { 'morrowind.esm', 'tribunal.esm', 'bloodmoon.esm' }
 
-  -- The lint checks for dirt `jess plugin clean` removes, by the flag that removes it.
+  -- The lint checks for dirt `tes3cmd clean` removes, by the flag that removes it.
   local DirtChecks: { [string]: Dirt } = {
     evilGmsts = { flag = '--evil-gmsts', severity = 'warning', what = 'evil GMST' },
     junkCells = { flag = '--junk-cells', severity = 'warning', what = 'junk cell' },
@@ -408,7 +409,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         files = { mesh.path },
         details = details,
         message = `{mesh.path}: {message}`,
-        fix = '`jess nif check` on the file for the details; `jess nif fix` repairs some',
+        fix = '`nif-assets check` on the file for the details; `nif-assets fix` repairs some',
       }
     end
   end
@@ -484,7 +485,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         check = 'masterSize',
         plugins = { loaded.name, master.name },
         message = `{loaded.name} records {master.name} as {master.size} bytes; it's {size}`,
-        fix = `\`jess plugin header {quoted(loaded.path)} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
+        fix = `\`tes3cmd header {quoted(loaded.path)} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
       }
     end
   end
@@ -514,7 +515,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         plugins = { loaded.name },
         details = messages,
         message = `{loaded.name} has {counted(#messages, dirt.what, dirt.whats)}`,
-        fix = `\`jess plugin clean {quoted(loaded.path)} {dirt.flag}\``,
+        fix = `\`tes3cmd clean {quoted(loaded.path)} {dirt.flag}\``,
       }
     end
   end
@@ -607,7 +608,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
           plugins = { owner.name },
           records = records,
           message = `{owner.name} has {counted(#records, 'record')} identical to its masters' copies`,
-          fix = `\`jess plugin clean {quoted(owner.path)} --duplicate-records\``,
+          fix = `\`tes3cmd clean {quoted(owner.path)} --duplicate-records\``,
         }
       end
     end
