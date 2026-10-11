@@ -1,0 +1,108 @@
+--!strict
+--!native
+-- A load order with one of everything the doctor looks for, built with `@tes3`: the port of the
+-- builder the tool's old harness ran (`tests/doctor/build.luau` in jess's history), plugin for
+-- plugin and record for record.
+local tes3 = require '@tes3'
+
+type Fields = { [string]: unknown }
+type Master = { name: string, size: number }
+
+--- The `content=` lines the harness gave the load order, in order: every plugin `build` writes
+--- but `Unlisted.esm`, and `Missing.esp`, which it doesn't write.
+local Content = table.freeze {
+  'Base.esm',
+  'A.esp',
+  'B.esp',
+  'Patch.esp',
+  'Dirty.esp',
+  'Early.esp',
+  'Late.esm',
+  'Orphan.esp',
+  'Needs.esp',
+  'Broken.esp',
+  'Missing.esp',
+}
+
+local function gem(name: string, value: number): Fields
+  return {
+    type = 'MiscItem',
+    id = 'doctor_gem',
+    name = name,
+    mesh = 'doctor\\gem.nif',
+    data = { weight = 1, value = value },
+  }
+end
+
+local function global(value: number): Fields
+  return { type = 'GlobalVariable', id = 'doctor_global', value = { type = 'Float', data = value } }
+end
+
+local function static(id: string, mesh: string): Fields return { type = 'Static', id = id, mesh = mesh } end
+
+--- Writes the load order's plugins, and the one model they have, into `dataFolder`.
+local function build(dataFolder: string)
+  local function save(name: string, plugin: tes3.Plugin)
+    plugin:updateRecordCount()
+    jess.fs.write(jess.fs.join(dataFolder, name), plugin:save())
+  end
+
+  local function master(name: string): Master
+    return { name = name, size = assert(jess.fs.size(jess.fs.join(dataFolder, name))) }
+  end
+
+  local function plugin(name: string, masters: { Master }, records: { Fields })
+    local built = tes3.new()
+    built:setMasters(masters)
+    for _, record in records do
+      built:insertValue(built:count(), record)
+    end
+
+    save(name, built)
+  end
+
+  local rock = static('doctor_rock', 'doctor\\rock.nif')
+
+  local base = tes3.new 'master'
+  for _, record in { gem('Gem', 10), global(1), rock, static('doctor_tree', 'a.nif') } do
+    base:insertValue(base:count(), record)
+  end
+
+  save('Base.esm', base)
+  save('Unlisted.esm', tes3.new 'master')
+  save('Late.esm', tes3.new 'master')
+
+  -- A changes the gem, the global, and the tree; B, loading later without A as a master, drops
+  -- those changes. B's rock is the master's, byte for byte.
+  plugin('A.esp', { master 'Base.esm' }, {
+    gem('Shiny Gem', 10),
+    global(2),
+    static('doctor_tree', 'b.nif'),
+  })
+
+  plugin('B.esp', { master 'Base.esm' }, {
+    gem('Gem', 20),
+    global(3),
+    static('doctor_tree', 'c.nif'),
+    rock,
+  })
+
+  -- A patch that lists A and B as masters settles their tree on purpose.
+  plugin('Patch.esp', { master 'Base.esm', master 'A.esp', master 'B.esp' }, {
+    static('doctor_tree', 'd.nif'),
+  })
+
+  plugin('Dirty.esp', { master 'Base.esm' }, {
+    { type = 'GameSetting', id = 'fWerewolfHealth', value = { type = 'Float', data = 2 } },
+    { type = 'Cell', name = 'Doctor Junk', data = { flags = 'IS_INTERIOR', grid = { 0, 0 } } },
+  })
+
+  plugin('Early.esp', { master 'Late.esm' }, {})
+  plugin('Orphan.esp', { { name = 'Gone.esm', size = 1 } }, {})
+  plugin('Needs.esp', { master 'Unlisted.esm' }, {})
+
+  jess.fs.write(jess.fs.join(dataFolder, 'Broken.esp'), 'not a plugin')
+  jess.fs.write(jess.fs.join(dataFolder, 'meshes', 'doctor', 'rock.nif'), 'not a model')
+end
+
+return table.freeze { build = build, content = Content }
