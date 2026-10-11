@@ -17,10 +17,9 @@ Afterwards `state.doctor.report` holds the report written: { config, output, bac
 plugins, checks, summary, findings }, each finding { severity, check, plugins, records, files,
 details, message, fix }.
 
-The report's wording is the tool's contract, so where it names TES3Merge's module it still says
-`@dreamwind/tools/tes3merge`, as every report has; the module is `@tes3merge` today. The commands
-its fixes name (`jess plugin clean`, `jess plugin header`, `jess nif check`, `jess nif fix`) are
-the jess command line's of the time, too.
+The report names the merge by its command, `tes3merge`. The commands its other fixes name
+(`jess plugin clean`, `jess plugin header`, `jess nif check`, `jess nif fix`) are the jess command
+line's of the time the doctor was written, and jess no longer has them.
 ]]
 
 local fs = require '@dream/fs'
@@ -622,15 +621,9 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       local fixes = {}
 
       if mergeable > 0 and not tes3mergeEnabled then
-        table.insert(
-          fixes,
-          `merge them with @dreamwind/tools/tes3merge, and load {mergedName} last`
-        )
+        table.insert(fixes, `merge them with tes3merge, and load {mergedName} last`)
       elseif mergeable > 0 then
-        table.insert(
-          fixes,
-          `{mergedName} merges these; run @dreamwind/tools/tes3merge again after load order changes`
-        )
+        table.insert(fixes, `{mergedName} merges these; run tes3merge again after load order changes`)
       end
 
       if manual > 0 then
@@ -643,7 +636,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       local message =
         `{conflict.winner} replaces {counted(count, 'record')} {conflict.loser} changed, dropping its changes`
       if mergeable > 0 then
-        message ..= ` ({mergeable} of them @dreamwind/tools/tes3merge can merge)`
+        message ..= ` ({mergeable} of them tes3merge can merge)`
       end
 
       add {
@@ -664,7 +657,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       severity = 'warning',
       check = 'tes3merge',
       plugins = { mergedName },
-      message = `@dreamwind/tools/tes3merge ran, but {mergedName} isn't in the load order`,
+      message = `tes3merge ran, but {mergedName} isn't in the load order`,
       fix = `add content={mergedName} to openmw.cfg, last, or run the merge with activate = true`,
     }
   end

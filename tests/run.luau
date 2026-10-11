@@ -122,8 +122,8 @@ findings:
   plugins:
   - A.esp
   - B.esp
-  message: "B.esp replaces 2 records A.esp changed, dropping its changes (1 of them @dreamwind/tools/tes3merge can merge)"
-  fix: "merge them with @dreamwind/tools/tes3merge, and load Merged Objects.esp last; patch the 1 record it can't merge in a plugin loading after B.esp, or drop one of the two"
+  message: B.esp replaces 2 records A.esp changed, dropping its changes (1 of them tes3merge can merge)
+  fix: "merge them with tes3merge, and load Merged Objects.esp last; patch the 1 record it can't merge in a plugin loading after B.esp, or drop one of the two"
   records:
   - MISC doctor_gem
   - GLOB doctor_global
@@ -268,8 +268,8 @@ suite.describe('the harness\'s load order', function()
 
     local conflict = find(report, 'conflict', 'B.esp replaces 2 records A.esp changed')
     expect(conflict.severity).toBe 'warning'
-    expect(has(conflict.message, '1 of them @dreamwind/tools/tes3merge can merge')).toBe(true)
-    expect(has(conflict.fix, 'merge them with @dreamwind/tools/tes3merge')).toBe(true)
+    expect(has(conflict.message, '1 of them tes3merge can merge')).toBe(true)
+    expect(has(conflict.fix, 'merge them with tes3merge')).toBe(true)
     expect(has(conflict.fix, 'patch the 1 record')).toBe(true)
     expect(conflict.plugins).toEqual { 'A.esp', 'B.esp' }
     expect(conflict.records).toEqual { 'MISC doctor_gem', 'GLOB doctor_global' }
@@ -771,8 +771,8 @@ suite.describe('conflicts', function()
         check = 'conflict',
         plugins = { 'A.esp', 'B.esp' },
         records = { 'MISC gem', 'STAT rock' },
-        message = 'B.esp replaces 2 records A.esp changed, dropping its changes (2 of them @dreamwind/tools/tes3merge can merge)',
-        fix = 'merge them with @dreamwind/tools/tes3merge, and load Merged Objects.esp last',
+        message = 'B.esp replaces 2 records A.esp changed, dropping its changes (2 of them tes3merge can merge)',
+        fix = 'merge them with tes3merge, and load Merged Objects.esp last',
       },
     }
 
@@ -783,8 +783,8 @@ suite.describe('conflicts', function()
         check = 'conflict',
         plugins = { 'A.esp', 'B.esp' },
         records = { 'MISC gem', 'STAT rock' },
-        message = 'B.esp replaces 2 records A.esp changed, dropping its changes (2 of them @dreamwind/tools/tes3merge can merge)',
-        fix = 'Merged Objects.esp merges these; run @dreamwind/tools/tes3merge again after load order changes',
+        message = 'B.esp replaces 2 records A.esp changed, dropping its changes (2 of them tes3merge can merge)',
+        fix = 'Merged Objects.esp merges these; run tes3merge again after load order changes',
       },
     }
   end)
@@ -798,7 +798,7 @@ suite.describe('conflicts', function()
     local named = order.check(built, { checks = { 'conflicts' } }, state).report
     expect(#named.findings).toBe(1)
     expect(named.findings[1].severity).toBe 'info'
-    expect(named.findings[1].fix).toBe 'My Merge.esp merges these; run @dreamwind/tools/tes3merge again after load order changes'
+    expect(named.findings[1].fix).toBe 'My Merge.esp merges these; run tes3merge again after load order changes'
   end)
 end)
 
