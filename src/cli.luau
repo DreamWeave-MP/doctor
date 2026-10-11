@@ -1,0 +1,225 @@
+--!strict
+--!native
+--[[
+@doctor/cli: the doctor's command line.
+
+  run(argv) -> exit status
+  parse(argv) -> (command, nil) | (nil, message)
+
+  doctor [--config <openmw.cfg or its folder>] [options]
+  doctor --help
+
+A run is @doctor over the configuration `--config` names, else the one `OPENMW_CONFIG` names: each
+a file, or a folder holding an openmw.cfg. Every option is one of that module's, as a flag of the
+same name: `--checks`, `--output`, `--format`, `--min-severity`, `--verbose`. A flag's value
+follows it, or is attached with `=`. `--checks` takes one name or several separated by commas, and
+may be given more than once: the option is a list, and with no original command line to follow,
+those are the two ways a list is usually spelled. `parse` reads an argument list into the command
+it names without running it, or says what it couldn't read.
+
+The doctor prints what it found itself, and what it found doesn't change the status: a load order
+full of errors is a check that ran. Values go to the doctor as they are spelled, and it decides
+what a check, a format, or a severity is.
+
+Exit statuses: 0 when the check ran, 8 when the command line can't be used (an unknown option, a
+missing value, an argument that isn't an option, no configuration, a configuration that isn't
+there), 9 when the check raised (a configuration that can't be read, a check, format, or severity
+the doctor doesn't have, a report that can't be written). Messages go to standard error as
+`doctor: <message>`.
+]]
+
+local doctor = require '@doctor'
+local fs = require '@dream/fs'
+local openmw = require '@openmw'
+local process = require '@dream/process'
+
+export type Command = {
+  action: 'check' | 'help',
+  config: string?,
+  options: doctor.Options?,
+}
+
+local Exit = table.freeze { ok = 0, invalidInput = 8, runtime = 9 }
+
+local Usage = [[
+doctor: a load-order health check, for when the game is broken and you'd like to know why
+
+  doctor [--config <openmw.cfg or its folder>] [options]
+  doctor --help
+
+Reads the configuration's load order and writes a report of what is wrong with it, worst first,
+each finding with its fix. It never changes a plugin or openmw.cfg. The configuration is the one
+--config names, else the one OPENMW_CONFIG names; there is no default.
+
+  --checks <name>[,<name>...]  the checks to run: masters, content, assets, meshes, dirt,
+                               conflicts (default all of them); may be given more than once
+  --output <path>              where the report goes (default jess-doctor.yaml, or .json,
+                               beside the user's openmw.cfg)
+  --format <yaml|json>         the report's format (default yaml)
+  --min-severity <error|warning|info>
+                               leave out anything milder (default info)
+  --verbose                    print every finding, not only the first ten errors and warnings
+
+Exit status: 0 the check ran, whatever it found; 8 the command line can't be used; 9 the check
+failed.]]
+
+local function out(text: string) process.write('stdout', `{text}\n`) end
+
+local function err(text: string) process.write('stderr', `{text}\n`) end
+
+local function usage(message: string): number
+  err(`doctor: {message}`)
+  return Exit.invalidInput
+end
+
+--- What each flag that takes a value is missing when it has none.
+local Values: { [string]: string } = {
+  ['--config'] = 'an openmw.cfg or its folder',
+  ['--checks'] = 'a check name',
+  ['--output'] = 'a path',
+  ['--format'] = 'a format',
+  ['--min-severity'] = 'a severity',
+}
+
+local function parse(argv: { string }): (Command?, string?)
+  local options: doctor.Options = {}
+  local command: Command = { action = 'check', options = options }
+  local help = false
+  local index = 1
+
+  while index <= #argv do
+    local argument = argv[index]
+    local flag, attached = string.match(argument, '^(%-%-[^=]+)=(.*)$')
+    local name: string = flag or argument
+
+    if name == '--help' or name == '-h' or name == '--verbose' then
+      if attached then return nil, `{name} takes no value, not '{attached}'` end
+
+      if name == '--verbose' then
+        options.verbose = true
+      else
+        help = true
+      end
+
+      index += 1
+      continue
+    end
+
+    local missing = Values[name]
+    if not missing then
+      if string.sub(argument, 1, 1) == '-' then return nil, `unknown option '{argument}'` end
+
+      return nil, `unexpected argument '{argument}'`
+    end
+
+    local value: string? = attached
+    if not value then
+      index += 1
+      value = argv[index]
+    end
+
+    if not value or value == '' then return nil, `{name} requires {missing}` end
+
+    if name == '--config' then
+      command.config = value
+    elseif name == '--output' then
+      options.output = value
+    elseif name == '--format' then
+      options.format = value :: 'yaml' | 'json'
+    elseif name == '--min-severity' then
+      options.minSeverity = value :: doctor.Level
+    else
+      local checks = options.checks or {}
+      for _, check in string.split(value, ',') do
+        if check == '' then return nil, `--checks takes names separated by commas, not '{value}'` end
+
+        table.insert(checks, check)
+      end
+
+      options.checks = checks
+    end
+
+    index += 1
+  end
+
+  if help then return { action = 'help' :: 'help' }, nil end
+
+  return command, nil
+end
+
+--- The openmw.cfg `given` names, or the one OPENMW_CONFIG does: a file, or a folder holding one
+--- under any capitalization. Nil and why when neither names one.
+local function configuration(given: string?): (string?, string?)
+  local selected = given
+  if not selected then
+    -- `process.env` throws in a runtime without the process.environment capability. A caller
+    -- there can only name the configuration with --config, so the variable counts as unset.
+    local readable, value = pcall(process.env, 'OPENMW_CONFIG')
+    if readable then selected = value end
+  end
+
+  if not selected or selected == '' then
+    return nil,
+      'an OpenMW configuration is required: pass --config <openmw.cfg or its folder> or set OPENMW_CONFIG'
+  end
+
+  local info, message, kind = fs.stat(selected)
+  if not info and kind ~= 'notFound' and message then
+    return nil, `can't read the configuration '{selected}': {message}`
+  end
+
+  if info and info.isFile then return selected, nil end
+
+  if not info or not info.isDir then
+    return nil, `the configuration '{selected}' isn't a file or a folder`
+  end
+
+  local names, listProblem = fs.list(selected)
+  if not names then return nil, `can't list the configuration folder '{selected}': {listProblem}` end
+
+  for _, name in names do
+    if string.lower(name) == 'openmw.cfg' then return jess.fs.join(selected, name), nil end
+  end
+
+  return nil, `the folder '{selected}' has no openmw.cfg`
+end
+
+--- What a raised error says: the doctor's own refusals as it words them, without the script
+--- position Luau puts in front, and anything else whole.
+local function reason(problem: unknown): string
+  local text = tostring(problem)
+  if string.sub(text, 1, #'doctor: ') == 'doctor: ' then return text end
+
+  return string.match(text, '^.-:%d+: (doctor: .*)$') or `doctor: {text}`
+end
+
+local function run(argv: { string }): number
+  local command, message = parse(argv)
+
+  if not command then return usage(message :: string) end
+
+  if command.action == 'help' then
+    out(Usage)
+    return Exit.ok
+  end
+
+  local path, missing = configuration(command.config)
+
+  if not path then return usage(missing :: string) end
+
+  local state: { [string]: unknown } = { doctor = command.options }
+
+  -- The configuration raises when it can't be read, and the doctor raises for a check, format,
+  -- or severity it doesn't have, for a plugin without a header to read masters from, and for a
+  -- report it can't write.
+  local checked, problem = pcall(function() doctor(state, openmw.new(path)) end)
+
+  if not checked then
+    err(reason(problem))
+    return Exit.runtime
+  end
+
+  return Exit.ok
+end
+
+return table.freeze { Exit = Exit, parse = parse, run = run }
