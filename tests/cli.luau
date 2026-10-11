@@ -1,0 +1,299 @@
+--!strict
+--!native
+-- `@doctor/cli`: the argument lists it reads into the doctor's options, the ones it refuses and
+-- why, the exit status of each way a run can end, and whole runs over the harness's load order.
+-- Its messages go to the suite's own standard error.
+local cli = require '@doctor/cli'
+local json = require '@jess/json'
+local order = require './order'
+local test = require '@jess/test'
+
+local expect = test.expect
+local suite = test.new()
+
+-- Each argument list `parse` refuses, and what it says of it.
+local Refused: { { argv: { string }, message: string } } = {
+  { argv = { '--bogus' }, message = 'unknown option \'--bogus\'' },
+  { argv = { '--Verbose' }, message = 'unknown option \'--Verbose\'' },
+  { argv = { '-v' }, message = 'unknown option \'-v\'' },
+  { argv = { '--minSeverity', 'error' }, message = 'unknown option \'--minSeverity\'' },
+  { argv = { '--bogus=1' }, message = 'unknown option \'--bogus=1\'' },
+  { argv = { '--' }, message = 'unknown option \'--\'' },
+  { argv = { 'check' }, message = 'unexpected argument \'check\'' },
+  { argv = { '--verbose', 'openmw.cfg' }, message = 'unexpected argument \'openmw.cfg\'' },
+  { argv = { '--checks', 'masters', 'content' }, message = 'unexpected argument \'content\'' },
+  { argv = { '--config' }, message = '--config requires an openmw.cfg or its folder' },
+  { argv = { '--config=' }, message = '--config requires an openmw.cfg or its folder' },
+  { argv = { '--checks' }, message = '--checks requires a check name' },
+  { argv = { '--checks', '' }, message = '--checks requires a check name' },
+  { argv = { '--output' }, message = '--output requires a path' },
+  { argv = { '--format' }, message = '--format requires a format' },
+  { argv = { '--format=' }, message = '--format requires a format' },
+  { argv = { '--min-severity' }, message = '--min-severity requires a severity' },
+  { argv = { '--verbose=true' }, message = '--verbose takes no value, not \'true\'' },
+  { argv = { '--help=me' }, message = '--help takes no value, not \'me\'' },
+  {
+    argv = { '--checks', 'masters,,content' },
+    message = '--checks takes names separated by commas, not \'masters,,content\'',
+  },
+  {
+    argv = { '--checks=masters,' },
+    message = '--checks takes names separated by commas, not \'masters,\'',
+  },
+}
+
+local function parsed(argv: { string }): cli.Command
+  local command, message = cli.parse(argv)
+  return command or error(message, 0)
+end
+
+suite.describe('parse', function()
+  suite.it('reads no arguments as a check with the doctor\'s own defaults', function()
+    expect(parsed {}).toEqual { action = 'check', options = {} }
+  end)
+
+  suite.it('reads each flag onto the option of the same name', function()
+    expect(parsed { '--config', '/etc/openmw' }).toEqual {
+      action = 'check',
+      config = '/etc/openmw',
+      options = {},
+    }
+
+    expect(parsed { '--output', 'out/report.yaml' }).toEqual {
+      action = 'check',
+      options = { output = 'out/report.yaml' },
+    }
+    expect(parsed { '--format', 'json' }).toEqual { action = 'check', options = { format = 'json' } }
+    expect(parsed { '--min-severity', 'warning' }).toEqual {
+      action = 'check',
+      options = { minSeverity = 'warning' },
+    }
+    expect(parsed { '--verbose' }).toEqual { action = 'check', options = { verbose = true } }
+    expect(parsed { '--checks', 'masters' }).toEqual {
+      action = 'check',
+      options = { checks = { 'masters' } },
+    }
+  end)
+
+  suite.it('reads --checks as a list: names with commas between, and each use adding to the last', function()
+    expect(parsed { '--checks', 'masters,content' }).toEqual {
+      action = 'check',
+      options = { checks = { 'masters', 'content' } },
+    }
+
+    expect(parsed { '--checks', 'dirt', '--verbose', '--checks=assets,meshes', '--checks', 'dirt' }).toEqual {
+      action = 'check',
+      options = { checks = { 'dirt', 'assets', 'meshes', 'dirt' }, verbose = true },
+    }
+  end)
+
+  suite.it('reads a value attached with =, whatever it holds', function()
+    expect(parsed { '--config=/a/b=c/openmw.cfg', '--format=json', '--min-severity=error' }).toEqual {
+      action = 'check',
+      config = '/a/b=c/openmw.cfg',
+      options = { format = 'json', minSeverity = 'error' },
+    }
+
+    expect(parsed { '--output=--verbose' }).toEqual {
+      action = 'check',
+      options = { output = '--verbose' },
+    }
+  end)
+
+  suite.it('takes every flag at once, the last use of one winning', function()
+    expect(parsed {
+      '--format',
+      'json',
+      '--config',
+      'first',
+      '--verbose',
+      '--output',
+      'a.json',
+      '--min-severity',
+      'info',
+      '--config',
+      'second',
+      '--format',
+      'yaml',
+    }).toEqual {
+      action = 'check',
+      config = 'second',
+      options = { format = 'yaml', verbose = true, output = 'a.json', minSeverity = 'info' },
+    }
+  end)
+
+  suite.it('hands values over as they are spelled: the doctor decides what they name', function()
+    expect(parsed { '--checks', 'vibes', '--format', 'toml', '--min-severity', 'fatal' }).toEqual {
+      action = 'check',
+      options = { checks = { 'vibes' }, format = 'toml', minSeverity = 'fatal' },
+    }
+
+    -- A value is whatever follows its flag, another flag's name included.
+    expect(parsed { '--output', '--verbose' }).toEqual {
+      action = 'check',
+      options = { output = '--verbose' },
+    }
+  end)
+
+  suite.it('reads help wherever it is, over everything else', function()
+    expect(parsed { '--help' }).toEqual { action = 'help' }
+    expect(parsed { '-h' }).toEqual { action = 'help' }
+    expect(parsed { '--config', 'x', '--verbose', '--help' }).toEqual { action = 'help' }
+  end)
+
+  suite.it('refuses what it can\'t read, and says why', function()
+    for _, case in Refused do
+      local command, message = cli.parse(case.argv)
+      expect(command).toBeNil()
+      expect(message).toBe(case.message)
+    end
+  end)
+
+  suite.it('leaves the argument list as it was, and gives each parse its own options', function()
+    local argv = { '--checks', 'masters,content', '--verbose' }
+    local first, second = parsed(argv), parsed(argv)
+    expect(argv).toEqual { '--checks', 'masters,content', '--verbose' }
+    expect(first.options ~= second.options).toBe(true)
+    expect(assert(first.options).checks ~= assert(second.options).checks).toBe(true)
+  end)
+end)
+
+suite.describe('run', function()
+  suite.it(
+    'numbers its exit statuses as starwind does',
+    function() expect(cli.Exit).toEqual { ok = 0, invalidInput = 8, runtime = 9 } end
+  )
+
+  suite.it('returns 0 for help', function()
+    expect(cli.run { '--help' }).toBe(0)
+    expect(cli.run { '-h' }).toBe(0)
+  end)
+
+  suite.it('returns 8 for every command line parse refuses', function()
+    for _, case in Refused do
+      expect(cli.run(case.argv)).toBe(8)
+    end
+  end)
+
+  suite.it('returns 8 without a configuration', function()
+    -- `jess package test` grants no process.environment, so OPENMW_CONFIG can't name one here.
+    expect(cli.run {}).toBe(8)
+    expect(cli.run { '--verbose' }).toBe(8)
+  end)
+
+  suite.it('returns 8 for a configuration that isn\'t there, and writes nothing', function()
+    local built = order.harness 'cli-missing'
+    local before = order.files(built.root)
+    expect(cli.run { '--config', jess.fs.join(built.root, 'nowhere/openmw.cfg') }).toBe(8)
+    expect(cli.run { '--config', jess.fs.join(built.root, 'nowhere') }).toBe(8)
+
+    -- A folder is the configuration only when it holds an openmw.cfg.
+    expect(cli.run { '--config', built.data }).toBe(8)
+    expect(order.files(built.root)).toEqual(before)
+  end)
+
+  suite.it('checks the load order --config names, and returns 0 whatever it finds', function()
+    local built = order.harness 'cli-check'
+    local before = order.files(built.root)
+    order.takePrinted()
+
+    -- The harness's first scenario, through the command line: six errors, and a check that ran.
+    expect(cli.run { '--config', built.cfg, '--format', 'json' }).toBe(0)
+
+    local path = jess.fs.join(built.config, 'jess-doctor.json')
+    local printed = order.takePrinted()
+    expect(string.sub(printed, 1, 57)).toBe 'doctor: 6 errors, 5 warnings, 1 info in 11 content files\n'
+    expect(string.sub(printed, -#`report: {path}\n`)).toBe(`report: {path}\n`)
+
+    local text = jess.fs.read(path)
+    local report = json.decode(text) :: { [string]: any }
+    expect(report.config).toBe(built.cfg)
+    expect(report.summary.errors).toBe(6)
+    expect(#report.findings).toBe(12)
+
+    -- The report is the only file a run writes.
+    local after = order.files(built.root)
+    after[path] = nil
+    expect(after).toEqual(before)
+  end)
+
+  suite.it('finds the openmw.cfg in the folder --config names, under any capitalization', function()
+    local built = order.harness 'cli-folder'
+    local shouted = jess.fs.join(built.config, 'OpenMW.cfg')
+    jess.fs.write(shouted, jess.fs.read(built.cfg))
+    jess.fs.remove(built.cfg)
+    order.takePrinted()
+    expect(cli.run { '--config', built.config, '--checks', 'content', '--min-severity=error' }).toBe(0)
+    expect(string.sub(order.takePrinted(), 1, 57)).toBe 'doctor: 2 errors, 0 warnings, 0 info in 11 content files\n'
+    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.yaml'))).toBe(true)
+  end)
+
+  suite.it('hands every flag to the doctor as its option', function()
+    local built = order.harness 'cli-options'
+    local output = jess.fs.join(built.out, 'checked.json')
+    order.takePrinted()
+    expect(cli.run {
+      '--config',
+      built.cfg,
+      '--checks',
+      'masters,content',
+      '--min-severity',
+      'error',
+      '--format',
+      'json',
+      '--output',
+      output,
+      '--verbose',
+    }).toBe(0)
+
+    -- The harness's third scenario: five errors from the two checks, in the file asked for.
+    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.json'))).toBe(false)
+
+    local report = json.decode(jess.fs.read(output)) :: { [string]: any }
+    expect(report.checks).toEqual { 'masters', 'content' }
+    expect(report.summary).toEqual {
+      errors = 5,
+      warnings = 0,
+      info = 0,
+      byCheck = { missingContent = 1, unreadablePlugin = 1, missingMaster = 2, masterOrder = 1 },
+    }
+
+    local printed = order.takePrinted()
+    expect(string.find(printed, '  error masterOrder: Early.esp loads before its master Late.esm\n', 1, true) ~= nil).toBe(true)
+    expect(string.sub(printed, -#`report: {output}\n`)).toBe(`report: {output}\n`)
+  end)
+
+  suite.it('returns 9 when the doctor refuses a check, a format, or a severity, having written nothing', function()
+    local built = order.harness 'cli-refused'
+    local before = order.files(built.root)
+    for _, flags in {
+      { '--checks', 'vibes' },
+      { '--checks', 'masters,vibes' },
+      { '--format', 'toml' },
+      { '--min-severity', 'fatal' },
+    } do
+      local argv = { '--config', built.cfg }
+      table.move(flags, 1, #flags, 3, argv)
+      expect({ argv = flags, status = cli.run(argv) }).toEqual { argv = flags, status = 9 }
+    end
+
+    expect(order.files(built.root)).toEqual(before)
+  end)
+
+  suite.it('returns 9 for a configuration that can\'t be read', function()
+    local built = order.harness 'cli-unreadable'
+    jess.fs.write(built.cfg, 'encoding=klingon\n')
+    expect(cli.run { '--config', built.cfg }).toBe(9)
+  end)
+
+  suite.it('returns 9 when the report can\'t be written', function()
+    local built = order.harness 'cli-unwritable'
+
+    -- A file where the report's folder would be.
+    local blocked = jess.fs.join(built.out, 'blocked')
+    jess.fs.write(blocked, 'a file')
+    expect(cli.run { '--config', built.cfg, '--checks', 'content', '--output', jess.fs.join(blocked, 'report.yaml') }).toBe(9)
+  end)
+end)
+
+return suite
