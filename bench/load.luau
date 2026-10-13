@@ -1,0 +1,21 @@
+--!strict
+--[[
+One process of the bench's load workload: what the doctor's own modules cost a process to
+require, compiling as they load, once the packages they depend on are already there:
+
+  jess run --package . --package-path .. bench/load.luau
+
+Prints the command line's status for a run that went well and the seconds the two modules took,
+tab-separated. `bench.luau` runs it, fifteen processes a workload.
+]]
+
+require '@load-order'
+require '@openmw'
+require '@plugin-assets'
+require '@tes3'
+require '@tes3cmd'
+
+local started = os.clock()
+local cli = require '@doctor/cli'
+
+print(`{cli.Exit.ok}\t{string.format('%.9f', os.clock() - started)}`)

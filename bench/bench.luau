@@ -41,7 +41,9 @@ what the report writes without quotes; the bench refuses any other.
 Given the jess binary to start (and `process.spawn`), the cold workloads too: what one process
 pays for one command from its first `require` on. Each is the median of seven processes running
 `cold.luau`, which find the packages this one depends on in the package path, the folder above
-this package without one.
+this package without one. And the load workload: what the doctor's own modules cost a process
+that already has the packages they depend on, the median of fifteen processes running
+`load.luau`. Every run of the command pays it, whatever it checks.
 ]]
 
 local bytes = require '@dream/bytes'
@@ -779,6 +781,28 @@ local function cold(name: string, expected: string, argv: { string }, built: Ord
   print(`{name}\t{string.format('%.9f', median(samples))}`)
 end
 
+--- Times the doctor's own modules loading, a process a sample.
+local function load(name: string)
+  if not binary or not runs(name) then return end
+
+  local arguments =
+    { 'run', '--package', `{Here}/..`, '--package-path', PackagePath, `{Here}/load.luau` }
+  local samples: { number } = {}
+
+  for run = 1, 15 do
+    local result, message = process.run(binary, arguments, { stdout = 'capture', stderr = 'null' })
+    if not result then error(`{name}: {message}`, 0) end
+
+    local status, seconds = string.match(result.stdout or '', '^(%d+)\t([%d.]+)\n$')
+    if status ~= '0' then error(`{name}: printed "{result.stdout}", not a status of 0`, 0) end
+
+    samples[run] = tonumber(seconds) :: number
+  end
+
+  print(`{name}\t{string.format('%.9f', median(samples))}`)
+end
+
+load 'cold: load the doctor\'s own modules'
 cold('cold: --help', 'failed.', { '--help' })
 cold(
   'cold: the command, masters and content',
