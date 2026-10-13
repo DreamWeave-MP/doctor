@@ -72,13 +72,15 @@ type Dirt = { flag: string, severity: Level, what: string, whats: string? }
 
 type Conflict = { loser: string, winner: string, records: { string }, manual: number }
 
--- `@plugin-assets` findings for one plugin and code.
+-- `@plugin-assets` findings for one plugin and code: every record, and each file once, `listed`
+-- holding the ones already in `files`.
 type AssetGroup = {
   plugin: string,
   severity: pluginAssets.Severity,
   code: string,
   records: { string },
   files: { string },
+  listed: { [string]: boolean },
 }
 
 -- A document to write: one of a scalar, a list, or a map with its keys in order.
@@ -347,15 +349,19 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
             code = finding.code,
             records = {},
             files = {},
+            listed = {},
           }
           groups[key] = group
           table.insert(order, group)
         end
 
         table.insert(group.records, `{finding.recordType} {finding.id}`)
-        if finding.path ~= '' and not table.find(group.files, finding.path) then
-          table.insert(group.files, finding.path)
-        end
+
+        local path = finding.path
+        if path == '' or group.listed[path] then continue end
+
+        group.listed[path] = true
+        table.insert(group.files, path)
       end
 
       for _, group in order do
