@@ -9,7 +9,7 @@ command line's argument lists read; and the command line itself, warm and run on
     --capability process.spawn --package . --package-path .. \
     bench/bench.luau <scratch> [filter] [jess binary] [package path]
 
-Three load orders, written to a folder under `<scratch>`, which is removed afterwards:
+Four load orders, written to a folder under `<scratch>`, which is removed afterwards:
 
 - A load order with one of everything the doctor looks for, at a size a check is worth timing
   at: a master of 2,300 records (settings, globals, statics, activators, items, weapons, lights,
@@ -25,6 +25,9 @@ Three load orders, written to a folder under `<scratch>`, which is removed after
   nothing provides: 246 pairs of plugins where one drops the other's changes.
 - A master of 4,000 statics that each name a model of their own, none of them installed: what a
   load order looks like without the asset pack a mod needs.
+- Three hundred plugins of three records each over a master an eighth the first one's size, each
+  naming the master and the plugin before it as masters, every tenth with the master's size
+  recorded wrong: a long load order, for the checks that read headers alone.
 
 One line per workload, `name<TAB>seconds per call`: the median of seven batches of about a tenth
 of a second each, with a full collection between batches. The doctor reports through `print`, so
@@ -483,6 +486,30 @@ local function missingPack(): Order
   return built
 end
 
+--- Three hundred small plugins over one master, each naming the master and the plugin before it.
+local function threeHundredPlugins(): Order
+  local built = order 'hundreds'
+  local master = write(built, 'Bench.esm', {}, masterRecords(8))
+  local content = { master.name }
+  local previous = master
+
+  for plugin = 1, 300 do
+    local own = plugin * 1000 + 1
+    local named = if plugin % 10 == 0 then { name = master.name, size = 7 } else master
+
+    previous = write(
+      built,
+      `Mod {plugin}.esp`,
+      if plugin == 1 then { named } else { named, previous },
+      { static(own, 0), miscItem(own, 0), setting(own, 0) }
+    )
+    table.insert(content, previous.name)
+  end
+
+  configure(built, content)
+  return built
+end
+
 --- `text` without the scratch folder's path, which a report holds wherever it names a file.
 local function unrooted(text: string): string
   return table.concat(string.split(text, Root), '<root>')
@@ -567,6 +594,7 @@ end
 if fs.exists(Root) then io(fs.remove(Root, { recursive = true })) end
 
 local Load, Thirty, Pack = loadOrder(), thirtyPlugins(), missingPack()
+local Hundreds = threeHundredPlugins()
 
 --- The digest of the load order's whole report, as YAML.
 local Whole = '8d1abb1be1ac134925e34752285cc81b43107062aaee9b0c044f44467883b35e'
@@ -660,6 +688,13 @@ check(
   '1 of 1 files, 0 errors, 1 warnings, 0 info, 5c00869feafd02f2065dde262a2955c538d06c324fc82e397eaa2c9dbb494734',
   Pack,
   function(): doctor.Options return { checks = { 'assets' }, format = 'json' } end
+)
+
+check(
+  'check three hundred plugins, masters and content',
+  '301 of 301 files, 0 errors, 0 warnings, 30 info, e84da312283ee7a999bc7c412d774df73ab49d3c84920ee22a7a8726e4497a24',
+  Hundreds,
+  function(): doctor.Options return { checks = { 'masters', 'content' } } end
 )
 
 --- Argument lists the command line takes, in every spelling it reads.
