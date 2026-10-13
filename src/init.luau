@@ -823,18 +823,22 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     return '"' .. escaped .. '"'
   end
 
+  -- Words YAML reads as something other than a string, in any case.
+  local YamlWords = set { 'true', 'false', 'null', 'yes', 'no', 'on', 'off' }
+
   local function scalarText(value: string | number | boolean, yaml: boolean): string
     if type(value) == 'number' then
       return if value % 1 == 0 then string.format('%d', value) else tostring(value)
     end
 
     if type(value) == 'boolean' then return tostring(value) end
+    if not yaml then return jsonString(value) end
 
     local plain = string.find(value, '^[%w/][%w%s%.,_/%-%(%)]*$') ~= nil
       and not string.find(value, '%s$')
       and not tonumber(value)
-      and not table.find({ 'true', 'false', 'null', 'yes', 'no', 'on', 'off' }, string.lower(value))
-    if yaml and plain then return value end
+      and not YamlWords[string.lower(value)]
+    if plain then return value end
 
     return jsonString(value)
   end
