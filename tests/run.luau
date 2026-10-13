@@ -567,6 +567,47 @@ suite.describe('masters', function()
     expect(report.plugins).toBe(3)
     expect(report.contentFiles).toBe(3)
   end)
+
+  suite.it('are sized for every plugin that names one, and not at all when no data folder has one', function()
+    local base = order.plugin({ static('rock', 'rock.nif') }, nil, 'master')
+    local size = #buffer.tostring(base)
+    local built = order.order('master-named-often', {
+      ['Base.esm'] = base,
+      ['One.esp'] = order.plugin({}, { { name = 'Base.esm', size = 7 }, { name = 'Absent.esm', size = 5 } }),
+      ['Two.esp'] = order.plugin({}, { { name = 'BASE.ESM', size = 8 }, { name = 'Base.esm', size = size } }),
+      ['Three.esp'] = order.plugin({}, { { name = 'absent.ESM', size = 6 }, { name = 'Base.esm', size = size } }),
+      ['Four.esp'] = order.plugin({}, { { name = 'Base.esm', size = 9 }, { name = 'base.esm', size = 10 } }),
+    }, { 'Base.esm', 'Absent.esm', 'One.esp', 'Two.esp', 'Three.esp', 'Four.esp' })
+
+    local report = order.check(built, { checks = { 'masters' } }).report
+    expect([for finding in report.findings => `{finding.check}: {finding.message}`]).toEqual {
+      `masterSize: Four.esp records Base.esm as 9 bytes; it's {size}`,
+      `masterSize: Four.esp records base.esm as 10 bytes; it's {size}`,
+      `masterSize: One.esp records Base.esm as 7 bytes; it's {size}`,
+      `masterSize: Two.esp records BASE.ESM as 8 bytes; it's {size}`,
+    }
+  end)
+
+  suite.it('are where the load order lists them last, when it lists one twice', function()
+    local base = order.plugin({ static('rock', 'rock.nif') }, nil, 'master')
+    local named = { { name = 'Base.esm', size = #buffer.tostring(base) } }
+    local built = order.order('master-listed-twice', {
+      ['Base.esm'] = base,
+      ['Between.esp'] = order.plugin({}, named),
+      ['After.esp'] = order.plugin({}, named),
+    }, { 'Base.esm', 'Between.esp', 'base.ESM', 'After.esp' })
+
+    local report = order.check(built, { checks = { 'masters' } }).report
+    expect(report.findings).toEqual {
+      {
+        severity = 'error',
+        check = 'masterOrder',
+        plugins = { 'Between.esp', 'Base.esm' },
+        message = 'Between.esp loads before its master Base.esm',
+        fix = 'move content=Base.esm above content=Between.esp in openmw.cfg',
+      },
+    }
+  end)
 end)
 
 local Triangle = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } }
