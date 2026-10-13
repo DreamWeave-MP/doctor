@@ -335,29 +335,34 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     })
 
     if enabled.assets then
-      local groups: { [string]: AssetGroup }, order: { AssetGroup } = {}, {}
+      -- Each plugin's groups by code, by the plugin's name.
+      local groups: { [string]: { [string]: AssetGroup } }, order: { AssetGroup } = {}, {}
 
       for _, finding in assets.findings do
-        if not AssetSeverities[finding.severity] or CheckedElsewhere[finding.code] then continue end
+        local {plugin, severity, code, path} = finding
+        if not AssetSeverities[severity] or CheckedElsewhere[code] then continue end
 
-        local key = `{finding.plugin}\0{finding.code}`
-        local group = groups[key]
+        local ofPlugin = groups[plugin]
+        if not ofPlugin then
+          ofPlugin = {}
+          groups[plugin] = ofPlugin
+        end
+
+        local group = ofPlugin[code]
         if not group then
           group = {
-            plugin = finding.plugin,
-            severity = finding.severity,
-            code = finding.code,
+            plugin = plugin,
+            severity = severity,
+            code = code,
             records = {},
             files = {},
             listed = {},
           }
-          groups[key] = group
+          ofPlugin[code] = group
           table.insert(order, group)
         end
 
         table.insert(group.records, `{finding.recordType} {finding.id}`)
-
-        local path = finding.path
         if path == '' or group.listed[path] then continue end
 
         group.listed[path] = true
