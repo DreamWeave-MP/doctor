@@ -872,4 +872,82 @@ suite.describe('options', function()
   end)
 end)
 
+--- Names a load order can hold, and how a report spells each: `yaml` in a YAML list, `json`
+--- between JSON's quotes, and `bare` when a sentence that starts with the name goes into YAML
+--- without quotes.
+local Spellings: { { name: string, yaml: string, json: string, bare: boolean } } = {
+  { name = 'Plain Name.esp', yaml = 'Plain Name.esp', json = 'Plain Name.esp', bare = true },
+  { name = 'a,b (c).esp', yaml = 'a,b (c).esp', json = 'a,b (c).esp', bare = true },
+  { name = '/slash', yaml = '/slash', json = '/slash', bare = true },
+  { name = 'under_score-dash', yaml = 'under_score-dash', json = 'under_score-dash', bare = true },
+  { name = 'ends.', yaml = 'ends.', json = 'ends.', bare = true },
+  -- A tab is white space, which a bare string may hold.
+  { name = 'tab\there', yaml = 'tab\there', json = 'tab\\there', bare = true },
+
+  -- What YAML would read as a boolean, as nothing, or as a number is quoted; a longer name
+  -- that starts with one isn't.
+  { name = 'true', yaml = '"true"', json = 'true', bare = true },
+  { name = 'False', yaml = '"False"', json = 'False', bare = true },
+  { name = 'null', yaml = '"null"', json = 'null', bare = true },
+  { name = 'Yes', yaml = '"Yes"', json = 'Yes', bare = true },
+  { name = 'No', yaml = '"No"', json = 'No', bare = true },
+  { name = 'on', yaml = '"on"', json = 'on', bare = true },
+  { name = 'OFF', yaml = '"OFF"', json = 'OFF', bare = true },
+  { name = 'nulls', yaml = 'nulls', json = 'nulls', bare = true },
+  { name = 'yes.esp', yaml = 'yes.esp', json = 'yes.esp', bare = true },
+  { name = '12', yaml = '"12"', json = '12', bare = true },
+  { name = '0x1F', yaml = '"0x1F"', json = '0x1F', bare = true },
+  { name = '1e5', yaml = '"1e5"', json = '1e5', bare = true },
+
+  -- Anything that doesn't start with a letter, a digit, or a slash is quoted.
+  { name = '.5', yaml = '".5"', json = '.5', bare = false },
+  { name = '-1', yaml = '"-1"', json = '-1', bare = false },
+  { name = '-dash', yaml = '"-dash"', json = '-dash', bare = false },
+  { name = '.dot', yaml = '".dot"', json = '.dot', bare = false },
+  { name = ',comma', yaml = '",comma"', json = ',comma', bare = false },
+  { name = '(paren)', yaml = '"(paren)"', json = '(paren)', bare = false },
+  { name = '_under', yaml = '"_under"', json = '_under', bare = false },
+  { name = '#hash', yaml = '"#hash"', json = '#hash', bare = false },
+
+  -- So is anything holding a character YAML could take for its own, or one outside ASCII.
+  { name = 'colon: here', yaml = '"colon: here"', json = 'colon: here', bare = false },
+  { name = 'it\'s', yaml = '"it\'s"', json = 'it\'s', bare = false },
+  { name = 'ünï.esp', yaml = '"ünï.esp"', json = 'ünï.esp', bare = false },
+
+  -- Quotes, backslashes, and control characters are escaped as JSON escapes them.
+  { name = 'say "so".esp', yaml = '"say \\"so\\".esp"', json = 'say \\"so\\".esp', bare = false },
+  { name = 'back\\slash.esp', yaml = '"back\\\\slash.esp"', json = 'back\\\\slash.esp', bare = false },
+  { name = 'bell\7.esp', yaml = '"bell\\u0007.esp"', json = 'bell\\u0007.esp', bare = false },
+  { name = 'del\127.esp', yaml = '"del\\u007f.esp"', json = 'del\\u007f.esp', bare = false },
+}
+
+suite.describe('a string in the report', function()
+  suite.it('is bare in YAML only where it reads back as itself, and escaped as JSON escapes it', function()
+    local content = [for spelling in Spellings => spelling.name]
+    local built = order.order('strings', {}, content)
+    local sentence = ' is in the load order, but no data folder has it'
+
+    local asYaml = order.check(built, { checks = { 'content' } })
+    local text = jess.fs.read(jess.fs.join(built.config, 'jess-doctor.yaml'))
+    for _, spelling in Spellings do
+      local message = if spelling.bare
+        then spelling.name .. sentence
+        else `"{spelling.json}{sentence}"`
+      expect(has(text, `  plugins:\n  - {spelling.yaml}\n  message: {message}\n`)).toBe(true)
+    end
+
+    expect(#asYaml.report.findings).toBe(#Spellings)
+    expect(yaml.decode(text)).toEqual(written(asYaml.report))
+
+    local asJson = order.check(built, { checks = { 'content' }, format = 'json' })
+    local document = jess.fs.read(jess.fs.join(built.config, 'jess-doctor.json'))
+    for _, spelling in Spellings do
+      local plugins = `      "plugins": [\n        "{spelling.json}"\n      ],\n`
+      expect(has(document, `{plugins}      "message": "{spelling.json}{sentence}",\n`)).toBe(true)
+    end
+
+    expect(json.decode(document)).toEqual(written(asJson.report))
+  end)
+end)
+
 return suite
