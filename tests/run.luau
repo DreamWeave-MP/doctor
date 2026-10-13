@@ -706,6 +706,56 @@ suite.describe('assets and models', function()
     }
   end)
 
+  suite.it('lists a file once for each plugin and each thing wrong, under every spelling of it', function()
+    local function trinket(id: string, icon: string): order.Fields
+      return { type = 'MiscItem', id = id, mesh = 'here.nif', icon = icon }
+    end
+
+    local built = order.order('assets-shared', {
+      ['Base.esm'] = order.plugin({ static('rock', 'gone\\one.nif') }, nil, 'master'),
+      ['Mod.esp'] = order.plugin {
+        static('first', 'gone\\one.nif'),
+        static('shouted', 'GONE\\One.NIF'),
+        static('again', 'gone\\one.nif'),
+        static('slashed', 'gone/one.nif'),
+        static('shouted again', 'GONE\\One.NIF'),
+        trinket('coin', 'gone\\one.nif'),
+        trinket('ring', 'gone\\one.nif'),
+      },
+      ['Other.esp'] = order.plugin { static('last', 'gone\\one.nif') },
+      ['meshes/here.nif'] = '',
+    }, { 'Base.esm', 'Mod.esp', 'Other.esp' })
+
+    local report = order.check(built, { checks = { 'assets' } }).report
+    local listed = [
+      for finding in report.findings
+      => { message = finding.message, records = finding.records, files = finding.files }
+    ]
+
+    expect(listed).toEqual {
+      {
+        message = 'Base.esm refers to 1 file nothing provides (missingMesh)',
+        records = { 'STAT rock' },
+        files = { 'gone\\one.nif' },
+      },
+      {
+        message = 'Mod.esp refers to 1 file nothing provides (missingIcon)',
+        records = { 'MISC coin', 'MISC ring' },
+        files = { 'gone\\one.nif' },
+      },
+      {
+        message = 'Mod.esp refers to 3 files nothing provides (missingMesh)',
+        records = { 'STAT first', 'STAT shouted', 'STAT again', 'STAT slashed', 'STAT shouted again' },
+        files = { 'gone\\one.nif', 'GONE\\One.NIF', 'gone/one.nif' },
+      },
+      {
+        message = 'Other.esp refers to 1 file nothing provides (missingMesh)',
+        records = { 'STAT last' },
+        files = { 'gone\\one.nif' },
+      },
+    }
+  end)
+
   suite.it('grades a model by the worst thing wrong with it that matters in OpenMW', function()
     local records: { order.Fields } = {
       static('clean', 'clean.nif'),
