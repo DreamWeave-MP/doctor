@@ -27,7 +27,7 @@ Four load orders, written to a folder under `<scratch>`, which is removed afterw
   load order looks like without the asset pack a mod needs.
 - Three hundred plugins of three records each over a master an eighth the first one's size, each
   naming the master and the plugin before it as masters, every tenth with the master's size
-  recorded wrong: a long load order, for the checks that read headers alone.
+  recorded wrong: a long load order, checked by its headers alone and whole.
 
 One line per workload, `name<TAB>seconds per call`: the median of seven batches of about a tenth
 of a second each, with a full collection between batches. The doctor reports through `print`, so
