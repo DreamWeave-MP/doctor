@@ -277,12 +277,13 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   end
 
   local content = openmw:content()
+  -- Where each content file is in the load order, by its name in lowercase; a name listed twice
+  -- counts where it's listed last.
   local positions: { [string]: number } = {}
-  local entries: { loadOrder.Content }, contentNames: { string } = {}, {}
+  local entries: { loadOrder.Content } = {}
 
   for index, entry in content do
     positions[string.lower(entry.name)] = index
-    table.insert(contentNames, entry.name)
 
     if not entry.path then
       if not enabled.content then continue end
@@ -473,8 +474,9 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   end
 
   local function checkMasters(loaded: Loaded, position: number)
-    for _, master in loadOrder.masters(loaded.plugin, contentNames) do
-      local masterPosition = master.position
+    for _, master in loaded.plugin:masters() do
+      -- As `@load-order`'s `masters` places one, without its list of every name for each plugin.
+      local masterPosition = positions[string.lower(master.name)]
 
       if not masterPosition then
         local installed = openmw:resolve(master.name) ~= nil
