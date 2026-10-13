@@ -51,7 +51,7 @@ that hold a tab. The scratch folder's path must be absolute and hold only letter
 - Base: `8f663e9`, the package before the move, with the bench (the bench files as they are
   now, copied over the export: the three-hundred-plugin order and the load workload were added
   later, and run against the old code as they are). Head: `bd26383`; what follows it is this
-  page.
+  page and a line of the bench's own comment.
 - Protocol: the whole bench against an export of base and against head, six times each in two
   sets of three, alternating and swapping which goes first (base head, head base, base head;
   then head base, base head, head base), each set back to back under one lock; each cell is the
