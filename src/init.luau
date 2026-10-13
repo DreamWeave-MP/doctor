@@ -576,11 +576,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     or (mergeOptions and mergeOptions.report) ~= nil
 
   local function checkOverrides()
-    local handles: { tes3.Plugin } = {}
-    for _, loaded in plugins do
-      table.insert(handles, loaded.plugin)
-    end
-
+    local handles: { tes3.Plugin } = [for loaded in plugins => loaded.plugin]
     local identical: { [string]: { string } } = {}
     local conflicts: { [string]: Conflict } = {}
     local identicalOrder: { Loaded }, conflictOrder: { string } = {}, {}
@@ -687,10 +683,8 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     }
   end
 
-  local kept: { Finding } = {}
-  for _, finding in findings do
-    if SeverityRank[finding.severity] <= minSeverity then table.insert(kept, finding) end
-  end
+  local kept: { Finding } =
+    [for finding in findings if SeverityRank[finding.severity] <= minSeverity => finding]
 
   -- Findings of one severity are listed in this order.
   local CheckOrder = {
@@ -739,17 +733,12 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     summary.byCheck[finding.check] = (summary.byCheck[finding.check] or 0) + 1
   end
 
-  local checks = {}
-  for _, check in Checks do
-    if enabled[check] then table.insert(checks, check) end
-  end
-
   local report: Report = {
     config = jess.fs.join(openmw.userConfigDir, 'openmw.cfg'),
     output = outputPath,
     contentFiles = #content,
     plugins = #plugins,
-    checks = checks,
+    checks = [for check in Checks if enabled[check] => check],
     summary = summary,
     findings = kept,
   }
@@ -758,12 +747,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   local function scalar(value: string | number | boolean): Node return { scalar = value } end
 
   local function strings(values: { string }): Node
-    local items = {}
-    for _, value in values do
-      table.insert(items, scalar(value))
-    end
-
-    return { list = items }
+    return { list = [for value in values => scalar(value)] }
   end
 
   local function findingNode(finding: Finding): Node
@@ -786,16 +770,11 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   end
 
   local function reportNode(): Node
-    local byCheck: { Field } = {}
-    for _, check in CheckOrder do
-      local count = summary.byCheck[check]
-      if count then table.insert(byCheck, { key = check, node = scalar(count) }) end
-    end
-
-    local findingNodes = {}
-    for _, finding in kept do
-      table.insert(findingNodes, findingNode(finding))
-    end
+    local byCheck: { Field } = [
+      for check in CheckOrder
+      if summary.byCheck[check]
+      => { key = check, node = scalar(summary.byCheck[check]) }
+    ]
 
     local summaryFields: { Field } = {
       { key = 'errors', node = scalar(summary.errors) },
@@ -811,7 +790,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         { key = 'plugins', node = scalar(report.plugins) },
         { key = 'checks', node = strings(report.checks) },
         { key = 'summary', node = { map = summaryFields } },
-        { key = 'findings', node = { list = findingNodes } },
+        { key = 'findings', node = { list = [for finding in kept => findingNode(finding)] } },
       },
     }
   end
@@ -893,26 +872,20 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     if node.scalar ~= nil then return scalarText(node.scalar, false) end
 
     local inner = indent .. '  '
-    local parts = {}
 
     if node.list then
       if #node.list == 0 then return '[]' end
 
-      for _, item in node.list do
-        table.insert(parts, inner .. json(item, inner))
-      end
-
-      return '[\n' .. table.concat(parts, ',\n') .. '\n' .. indent .. ']'
+      local items = [for item in node.list => inner .. json(item, inner)]
+      return '[\n' .. table.concat(items, ',\n') .. '\n' .. indent .. ']'
     end
 
     local fields = node.map or {}
     if #fields == 0 then return '{}' end
 
-    for _, field in fields do
-      table.insert(parts, `{inner}{jsonString(field.key)}: {json(field.node, inner)}`)
-    end
-
-    return '{\n' .. table.concat(parts, ',\n') .. '\n' .. indent .. '}'
+    local members =
+      [for field in fields => `{inner}{jsonString(field.key)}: {json(field.node, inner)}`]
+    return '{\n' .. table.concat(members, ',\n') .. '\n' .. indent .. '}'
   end
 
   local function render(): string
@@ -933,12 +906,8 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     `doctor: {summary.errors} errors, {summary.warnings} warnings, {summary.info} info in {#content} content files`
   )
 
-  local counts = {}
-  for _, check in CheckOrder do
-    local count = summary.byCheck[check]
-    if count then table.insert(counts, `{check} {count}`) end
-  end
-
+  local counts =
+    [for check in CheckOrder if summary.byCheck[check] => `{check} {summary.byCheck[check]}`]
   if #counts > 0 then print(`  by check: {table.concat(counts, ', ')}`) end
 
   local shown = 0
