@@ -51,7 +51,7 @@ that hold a tab. The scratch folder's path must be absolute and hold only letter
 - Base: `8f663e9`, the package before the move, with the bench (the bench files as they are
   now, copied over the export: the three-hundred-plugin order and the load workload were added
   later, and run against the old code as they are). Head: `bd26383`; what follows it is this
-  page and a line of the bench's own comment.
+  page, a line of the bench's own comment, and three cases of the suite.
 - Protocol: the whole bench against an export of base and against head, six times each in two
   sets of three, alternating and swapping which goes first (base head, head base, base head;
   then head base, base head, head base), each set back to back under one lock; each cell is the
@@ -116,18 +116,22 @@ timed with a clock in a scratch copy of the module.
   report too, and thrown away; the seven words YAML reads as something else were a table made
   again for each string; and the two questions (is it bare, does it need escaping) were three
   Lua patterns, one of them unanchored. A JSON report no longer asks the first; the words are a
-  set; and the patterns are three of `@dream/bytes`, compiled once. Timed apart over 8,000
-  strings, one of those is 105 ns a string against 199 and 253 for the two finds it replaces,
-  and 106 against 258 for the search for something to escape. A string that holds a quote or a
-  backslash and no control character is escaped by `gsub` with a replacement string, where
-  every escape was a call. The old and new spellings were compared over every string of one and
-  two bytes and 3.2 million of three and four before the change, and `tests/run.luau` pins 33
-  names as YAML and JSON write them.
+  set; and the patterns are three of `@dream/bytes`, compiled once. Timed apart under the lock
+  over 8,000 strings of the kind a report lists (`STAT bench_static_123`, 16 to 22 bytes), one
+  of those is about 105 ns a string against about 500 for the two finds it replaces together,
+  and about 105 against about 440 for the `gsub` that finds nothing to escape. A string that
+  holds a quote or a backslash and no control character is escaped by `gsub` with a replacement
+  string, where every escape was a call. The old and new spellings were compared over every
+  string of one and two bytes and 3.2 million of three and four before the change, and
+  `tests/run.luau` pins 33 names as YAML and JSON write them.
 - **A cold start** (`bd26383`; `--help` 1.44x, the command with `--checks masters,content`
   1.41x, both from the table above). `@plugin-assets`, with the model reader behind it, takes a
-  fresh process that has `@tes3` 86 ms to load, and `@tes3cmd` 36; only the asset and model
-  checks use the first and only the dirt and conflict checks the second. Each is required where
-  its checks start. A run of every check loads what it always did.
+  process that has what every run of the doctor loads (`@tes3`, `@load-order`, `@openmw`) 80 ms
+  to load, and `@tes3cmd` 34, each the median of seven processes under the lock; a process that
+  has `@tes3` alone pays 205 ms for `@plugin-assets`, most of it packages `@openmw` loads too.
+  Only the asset and model checks use the first and only the dirt and conflict checks the
+  second. Each is required where its checks start. A run of every check loads what it always
+  did.
 
 Two commits changed how the code reads and not what it costs: an asset finding's group is found
 by plugin and then by code (`e7823e6`), and a failure, a group, a conflict, and a finding are
@@ -151,10 +155,11 @@ each a few to a few hundred elements long, built once a check.
 
 Five record patterns stayed. The module with them and without them, four rounds: 9.79 ms against
 9.64, which is 0.15 ms and under what this page calls a difference. The rest of row ² is the
-three patterns of `@dream/bytes` compiling (0.18 ms in a fresh process) and the module being 56
-lines longer. By the per-string times above, and not by any measurement of it, a report of about
-800 strings pays the patterns back. No run in the table is slower for the 0.6 ms: a run of some
-checks loads less than it did, and a run of all of them saves more in the check.
+three patterns of `@dream/bytes` compiling (0.16 ms in a fresh process, and 0.04 more the first
+time each is asked) and the module being 56 lines longer. By the per-string times above, and not
+by any measurement of it, a report of about 500 strings pays the patterns back. No run in the
+table is slower for the 0.6 ms: a run of some checks loads less than it did, and a run of all of
+them saves more in the check.
 
 ## What is left
 
@@ -177,7 +182,7 @@ A findings list is sorted with a comparator: 0.2 ms for 300 findings and 0.5 for
 percent of either check, and its last key is the message, which `argsort` has no order for.
 
 A cold run of every check is 420 ms, of which the check is about 30: `@tes3` takes a fresh
-process 111 ms to load and `@openmw` with the packages under it 155, neither this package's to
-shorten, and `--help` still pays both, 260 ms, to print a page of text. `@doctor/cli` needs
-`@doctor` for the types of its options, and Luau has no way to ask for a module's types without
-loading it.
+process 105 ms to load and `@openmw` with the packages under it 145 more (seven processes each,
+under the lock), neither this package's to shorten, and `--help` still pays both, 260 ms, to
+print a page of text. `@doctor/cli` needs `@doctor` for the types of its options, and Luau has no
+way to ask for a module's types without loading it.
