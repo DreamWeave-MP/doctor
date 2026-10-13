@@ -23,6 +23,7 @@ them know less than the doctor: `tes3cmd header --update-masters` and `tes3cmd c
 --duplicate-records` look for a plugin's masters beside it, not through the load order.
 ]]
 
+local bytes = require '@dream/bytes'
 local fs = require '@dream/fs'
 local loadOrder = require '@load-order'
 local openmwContext = require '@openmw'
@@ -86,6 +87,18 @@ type AssetGroup = {
 -- A document to write: one of a scalar, a list, or a map with its keys in order.
 type Node = { scalar: (string | number | boolean)?, list: { Node }?, map: { Field }? }
 type Field = { key: string, node: Node }
+
+-- A string YAML reads back as itself without quotes, when it isn't a number or one of YAML's
+-- words: a letter, a digit, or a slash first, then those, white space, and `.,_/-()`, the last of
+-- them not white space. The classes are ASCII's, as `%w` and `%s` are.
+local BareYaml = bytes.regex(
+  '^[0-9A-Za-z/](?:[0-9A-Za-z\\t\\n\\x0B\\x0C\\r .,_/()-]*[0-9A-Za-z.,_/()-])?$',
+  { unicode = false }
+)
+
+-- What JSON escapes in a string: a control character (`%c`), a quote, or a backslash.
+local JsonControl = bytes.regex('[\\x00-\\x1F\\x7F]', { unicode = false })
+local JsonEscaped = bytes.regex('[\\x00-\\x1F\\x7F"\\\\]', { unicode = false })
 
 return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   local shared: { [string]: unknown } = state or {}
@@ -811,16 +824,19 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     ['\t'] = '\\t',
   }
 
-  local function jsonString(text: string): string
-    local escaped = string.gsub(
-      text,
-      '[%c"\\]',
-      function(character: string): string
-        return JsonEscapes[character] or string.format('\\u%04x', string.byte(character))
-      end
-    )
+  local function escape(character: string): string
+    return JsonEscapes[character] or string.format('\\u%04x', string.byte(character))
+  end
 
-    return '"' .. escaped .. '"'
+  local function jsonString(text: string): string
+    if not JsonEscaped:isMatch(text) then return `"{text}"` end
+
+    -- A quote and a backslash are each escaped with a backslash; only a control character has
+    -- an escape to look up.
+    local escaped = if JsonControl:isMatch(text)
+      then string.gsub(text, '[%c"\\]', escape)
+      else string.gsub(text, '["\\]', '\\%0')
+    return `"{escaped}"`
   end
 
   -- Words YAML reads as something other than a string, in any case.
@@ -834,8 +850,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     if type(value) == 'boolean' then return tostring(value) end
     if not yaml then return jsonString(value) end
 
-    local plain = string.find(value, '^[%w/][%w%s%.,_/%-%(%)]*$') ~= nil
-      and not string.find(value, '%s$')
+    local plain = BareYaml:isMatch(value)
       and not tonumber(value)
       and not YamlWords[string.lower(value)]
     if plain then return value end
