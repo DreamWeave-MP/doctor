@@ -137,12 +137,7 @@ end
 
 --- The findings of a report that are of `kind`, in the report's order.
 local function findings(report: doctor.Report, kind: string): { doctor.Finding }
-  local found = {}
-  for _, finding in report.findings do
-    if finding.check == kind then table.insert(found, finding) end
-  end
-
-  return found
+  return [for finding in report.findings if finding.check == kind => finding]
 end
 
 return table.freeze {

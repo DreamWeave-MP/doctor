@@ -329,15 +329,7 @@ end
 
 --- The master's records, each kind cut to one part in `divisor`.
 local function masterRecords(divisor: number): { Fields }
-  local records: { Fields } = {}
-
-  for _, kind in Kinds do
-    for index = 1, kind.count // divisor do
-      table.insert(records, kind.make(index, 0))
-    end
-  end
-
-  return records
+  return [for kind in Kinds for index in range(1, kind.count // divisor) => kind.make(index, 0)]
 end
 
 --- One of everything the doctor looks for.
@@ -475,12 +467,10 @@ end
 --- A master whose every model is one nothing provides.
 local function missingPack(): Order
   local built = order 'pack'
-  local records: { Fields } = {}
-
-  for index = 1, 4000 do
-    records[index] =
-      { type = 'Static', id = `bench_pack_{index}`, mesh = `pack\\{index % 64}\\piece_{index}.nif` }
-  end
+  local records: { Fields } = [
+    for index in range(1, 4000)
+    => { type = 'Static', id = `bench_pack_{index}`, mesh = `pack\\{index % 64}\\piece_{index}.nif` }
+  ]
 
   configure(built, { write(built, 'Pack.esm', {}, records).name })
   return built
