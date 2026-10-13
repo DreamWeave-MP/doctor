@@ -473,6 +473,21 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     }
   end
 
+  -- Each content file's size on disk by its place in the load order, asked for once: false for
+  -- one no data folder has, or whose size can't be read.
+  local sizes: { [number]: number | false } = {}
+
+  local function sizeAt(position: number): number?
+    local size = sizes[position]
+    if size == nil then
+      local path = content[position].path
+      size = (if path then jess.fs.size(path) else nil) or false
+      sizes[position] = size
+    end
+
+    return size or nil
+  end
+
   local function checkMasters(loaded: Loaded, position: number)
     for _, master in loaded.plugin:masters() do
       -- As `@load-order`'s `masters` places one, without its list of every name for each plugin.
@@ -503,8 +518,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         continue
       end
 
-      local path = content[masterPosition].path
-      local size = if path then jess.fs.size(path) else nil
+      local size = sizeAt(masterPosition)
       if not size or size == master.size then continue end
 
       add {
