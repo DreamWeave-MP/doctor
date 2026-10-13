@@ -383,19 +383,20 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       end
 
       for _, group in order do
-        local missing = group.severity == 'missingAsset'
+        local {plugin, severity, code, records, files} = group
+        local missing = severity == 'missingAsset'
         add {
-          severity = AssetSeverities[group.severity],
+          severity = AssetSeverities[severity],
           check = if missing then 'missingAsset' else 'badRecord',
-          plugins = { group.plugin },
-          records = group.records,
-          files = group.files,
+          plugins = { plugin },
+          records = records,
+          files = files,
           message = if missing
-            then `{group.plugin} refers to {counted(#group.files, 'file')} nothing provides ({group.code})`
-            else `{group.plugin} has {counted(#group.records, 'record')} OpenMW reads wrong ({group.code})`,
+            then `{plugin} refers to {counted(#files, 'file')} nothing provides ({code})`
+            else `{plugin} has {counted(#records, 'record')} OpenMW reads wrong ({code})`,
           fix = if missing
-            then `install the mod that provides them, or fix the paths in {group.plugin}`
-            else `fix these records in {group.plugin}, or ask its author to`,
+            then `install the mod that provides them, or fix the paths in {plugin}`
+            else `fix these records in {plugin}, or ask its author to`,
         }
       end
     end
@@ -460,13 +461,13 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   local plugins: { Loaded } = opened.plugins
 
   for _, failure in opened.failures do
-    local name = failure.name
+    local {name, path, problem} = failure
     add {
       severity = 'error',
       check = 'unreadablePlugin',
       plugins = { name },
-      files = { failure.path :: string },
-      message = `{name} can't be read: {failure.problem}`,
+      files = { path :: string },
+      message = `{name} can't be read: {problem}`,
       fix = `reinstall the mod that provides {name}, or remove content={name} from openmw.cfg`,
     }
   end
@@ -636,8 +637,8 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     if not enabled.conflicts then return end
 
     for _, pair in conflictOrder do
-      local conflict = conflicts[pair]
-      local count, manual = #conflict.records, conflict.manual
+      local {loser, winner, records, manual} = conflicts[pair]
+      local count = #records
       local mergeable = count - manual
       local fixes = {}
 
@@ -650,12 +651,12 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       if manual > 0 then
         table.insert(
           fixes,
-          `patch the {counted(manual, 'record')} it can't merge in a plugin loading after {conflict.winner}, or drop one of the two`
+          `patch the {counted(manual, 'record')} it can't merge in a plugin loading after {winner}, or drop one of the two`
         )
       end
 
       local message =
-        `{conflict.winner} replaces {counted(count, 'record')} {conflict.loser} changed, dropping its changes`
+        `{winner} replaces {counted(count, 'record')} {loser} changed, dropping its changes`
       if mergeable > 0 then
         message ..= ` ({mergeable} of them tes3merge can merge)`
       end
@@ -663,8 +664,8 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       add {
         severity = if manual == 0 and tes3mergeEnabled then 'info' else 'warning',
         check = 'conflict',
-        plugins = { conflict.loser, conflict.winner },
-        records = conflict.records,
+        plugins = { loser, winner },
+        records = records,
         message = message,
         fix = table.concat(fixes, '; '),
       }
@@ -751,21 +752,22 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   end
 
   local function findingNode(finding: Finding): Node
+    local {severity, check, plugins, message, fix, records, files, details} = finding
     local fields: { Field } = {
-      { key = 'severity', node = scalar(finding.severity) },
-      { key = 'check', node = scalar(finding.check) },
-      { key = 'plugins', node = strings(finding.plugins) },
-      { key = 'message', node = scalar(finding.message) },
-      { key = 'fix', node = scalar(finding.fix) },
+      { key = 'severity', node = scalar(severity) },
+      { key = 'check', node = scalar(check) },
+      { key = 'plugins', node = strings(plugins) },
+      { key = 'message', node = scalar(message) },
+      { key = 'fix', node = scalar(fix) },
     }
 
     local function optional(key: string, values: { string }?)
       if values and #values > 0 then table.insert(fields, { key = key, node = strings(values) }) end
     end
 
-    optional('records', finding.records)
-    optional('files', finding.files)
-    optional('details', finding.details)
+    optional('records', records)
+    optional('files', files)
+    optional('details', details)
     return { map = fields }
   end
 
