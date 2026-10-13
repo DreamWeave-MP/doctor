@@ -27,9 +27,7 @@ local bytes = require '@dream/bytes'
 local fs = require '@dream/fs'
 local loadOrder = require '@load-order'
 local openmwContext = require '@openmw'
-local pluginAssets = require '@plugin-assets'
 local tes3 = require '@tes3'
-local tes3cmd = require '@tes3cmd'
 
 export type Level = 'error' | 'warning' | 'info'
 
@@ -72,17 +70,6 @@ type Loaded = loadOrder.Loaded
 type Dirt = { flag: string, severity: Level, what: string, whats: string? }
 
 type Conflict = { loser: string, winner: string, records: { string }, manual: number }
-
--- `@plugin-assets` findings for one plugin and code: every record, and each file once, `listed`
--- holding the ones already in `files`.
-type AssetGroup = {
-  plugin: string,
-  severity: pluginAssets.Severity,
-  code: string,
-  records: { string },
-  files: { string },
-  listed: { [string]: boolean },
-}
 
 -- A document to write: one of a scalar, a list, or a map with its keys in order.
 type Node = { scalar: (string | number | boolean)?, list: { Node }?, map: { Field }? }
@@ -303,45 +290,62 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     table.insert(entries, entry)
   end
 
-  -- What the asset check reads: every content file a data folder has, in load order. A script
-  -- list as its text, and a plugin with the record types that name files, or why it didn't open.
-  local function assetInputs(): { pluginAssets.Input }
-    local opened = loadOrder.open(openmw, { entries = entries, types = pluginAssets.recordTypes })
-    local inputs: { pluginAssets.Input } = {}
-    local nextPlugin, nextFailure = 1, 1
-
-    for _, entry in content do
-      local path = entry.path
-      if not path then continue end
-
-      if isScripts(entry.name) then
-        local text, problem = fs.readFileString(path)
-        table.insert(
-          inputs,
-          if text
-            then { name = entry.name, scripts = text }
-            else { name = entry.name, problem = `failed to read '{path}': {problem}` }
-        )
-        continue
-      end
-
-      -- The plugins that opened and the ones that didn't each come back in the order asked.
-      local failure = opened.failures[nextFailure]
-      if failure and failure.name == entry.name and failure.path == path then
-        table.insert(inputs, failure)
-        nextFailure += 1
-        continue
-      end
-
-      table.insert(inputs, opened.plugins[nextPlugin])
-      nextPlugin += 1
-    end
-
-    return inputs
-  end
-
   -- The asset check reads the load order on its own, so it runs before the plugins here are open.
   local function checkAssets()
+    -- Required here and not with the rest: only these two checks need the package, and a run
+    -- without them doesn't load it, or the model reader behind it.
+    local pluginAssets = require '@plugin-assets'
+
+    -- Its findings for one plugin and code: every record, and each file once, `listed` holding
+    -- the ones already in `files`.
+    type AssetGroup = {
+      plugin: string,
+      severity: pluginAssets.Severity,
+      code: string,
+      records: { string },
+      files: { string },
+      listed: { [string]: boolean },
+    }
+
+    -- What the asset check reads: every content file a data folder has, in load order. A script
+    -- list as its text, and a plugin with the record types that name files, or why it didn't
+    -- open.
+    local function assetInputs(): { pluginAssets.Input }
+      local opened =
+        loadOrder.open(openmw, { entries = entries, types = pluginAssets.recordTypes })
+      local inputs: { pluginAssets.Input } = {}
+      local nextPlugin, nextFailure = 1, 1
+
+      for _, entry in content do
+        local path = entry.path
+        if not path then continue end
+
+        if isScripts(entry.name) then
+          local text, problem = fs.readFileString(path)
+          table.insert(
+            inputs,
+            if text
+              then { name = entry.name, scripts = text }
+              else { name = entry.name, problem = `failed to read '{path}': {problem}` }
+          )
+          continue
+        end
+
+        -- The plugins that opened and the ones that didn't each come back in the order asked.
+        local failure = opened.failures[nextFailure]
+        if failure and failure.name == entry.name and failure.path == path then
+          table.insert(inputs, failure)
+          nextFailure += 1
+          continue
+        end
+
+        table.insert(inputs, opened.plugins[nextPlugin])
+        nextPlugin += 1
+      end
+
+      return inputs
+    end
+
     local assets = pluginAssets.check(assetInputs(), openmw:vfs(), {
       meshes = enabled.meshes == true,
       references = false,
@@ -537,35 +541,38 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     end
   end
 
-  local dirtChecks = tes3cmd.checkSet(DirtCheckNames)
+  -- `@tes3cmd` is required where the dirt and conflict checks start, and not with the rest: a
+  -- run without them doesn't load it.
+  local function checkDirt()
+    local tes3cmd = require '@tes3cmd'
+    local dirtChecks = tes3cmd.checkSet(DirtCheckNames)
 
-  local function checkDirt(loaded: Loaded)
-    local byCheck: { [string]: { string } } = {}
-
-    for _, finding in tes3cmd.lint(loaded.plugin, dirtChecks) do
-      local messages = byCheck[finding.check] or {}
-      table.insert(messages, finding.message)
-      byCheck[finding.check] = messages
-    end
-
-    for check, messages in byCheck do
-      local dirt = DirtChecks[check]
-      add {
-        severity = dirt.severity,
-        check = check,
-        plugins = { loaded.name },
-        details = messages,
-        message = `{loaded.name} has {counted(#messages, dirt.what, dirt.whats)}`,
-        fix = `\`tes3cmd clean {quoted(loaded.path)} {dirt.flag}\``,
-      }
-    end
-  end
-
-  if enabled.dirt then
     for _, loaded in plugins do
-      if not Official[string.lower(loaded.name)] then checkDirt(loaded) end
+      if Official[string.lower(loaded.name)] then continue end
+
+      local byCheck: { [string]: { string } } = {}
+
+      for _, finding in tes3cmd.lint(loaded.plugin, dirtChecks) do
+        local messages = byCheck[finding.check] or {}
+        table.insert(messages, finding.message)
+        byCheck[finding.check] = messages
+      end
+
+      for check, messages in byCheck do
+        local dirt = DirtChecks[check]
+        add {
+          severity = dirt.severity,
+          check = check,
+          plugins = { loaded.name },
+          details = messages,
+          message = `{loaded.name} has {counted(#messages, dirt.what, dirt.whats)}`,
+          fix = `\`tes3cmd clean {quoted(loaded.path)} {dirt.flag}\``,
+        }
+      end
     end
   end
+
+  if enabled.dirt then checkDirt() end
 
   -- Each plugin's masters, by name in lowercase: the header is read once per plugin, not once
   -- per record compared.
@@ -593,6 +600,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     or (mergeOptions and mergeOptions.report) ~= nil
 
   local function checkOverrides()
+    local tes3cmd = require '@tes3cmd'
     local handles: { tes3.Plugin } = {}
     for _, loaded in plugins do
       table.insert(handles, loaded.plugin)
