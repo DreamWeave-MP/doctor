@@ -697,6 +697,13 @@ check(
   function(): doctor.Options return { checks = { 'masters', 'content' } } end
 )
 
+check(
+  'check three hundred plugins, every check',
+  '301 of 301 files, 0 errors, 602 warnings, 30 info, cc4956ca2a3e5138f8ef4aaeecc271e59ed9d6c78473f9ffe421cba991491f21',
+  Hundreds,
+  function(): doctor.Options return {} end
+)
+
 --- Argument lists the command line takes, in every spelling it reads.
 local ArgumentLists: { { string } } = {
   { '--config', Load.config },
