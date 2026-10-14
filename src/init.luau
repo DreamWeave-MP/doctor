@@ -375,7 +375,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
             records = {},
             files = {},
             listed = {},
-          }
+          } :: AssetGroup
           ofPlugin[code] = group
           table.insert(order, group)
         end
@@ -485,7 +485,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     local size = sizes[position]
     if size == nil then
       local path = content[position].path
-      size = (if path then jess.fs.size(path) else nil) or false
+      size = ((if path then jess.fs.size(path) else nil) or false) :: number | false
       sizes[position] = size
     end
 
