@@ -1,7 +1,7 @@
 --!strict
 --!native
 -- The doctor's cases. The first group is the tool's old harness (`tests/doctor.rs` in jess's
--- history), scenario for scenario, over the load order `build.luau` builds: one of every problem
+-- history), scenario for scenario, over the load order `build.jsl` builds: one of every problem
 -- the doctor looks for. The rest take a check, a severity, or an option each, on load orders made
 -- for them; the dirt cases hold `@tes3cmd`'s lint to the messages the old `plugin:lint` wrote.
 local doctor = require '@doctor'

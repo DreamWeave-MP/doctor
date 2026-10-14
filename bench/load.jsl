@@ -3,10 +3,10 @@
 One process of the bench's load workload: what the doctor's own modules cost a process to
 require, compiling as they load, once the packages they depend on are already there:
 
-  jess run --package . --package-path .. bench/load.luau
+  jess run --package . --package-path .. bench/load.jsl
 
 Prints the command line's status for a run that went well and the seconds the two modules took,
-tab-separated. `bench.luau` runs it, fifteen processes a workload.
+tab-separated. `bench.jsl` runs it, fifteen processes a workload.
 ]]
 
 require '@load-order'

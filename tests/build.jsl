@@ -1,7 +1,7 @@
 --!strict
 --!native
 -- A load order with one of everything the doctor looks for, built with `@tes3`: the port of the
--- builder the tool's old harness ran (`tests/doctor/build.luau` in jess's history), plugin for
+-- builder the tool's old harness ran (`tests/doctor/build.jsl` in jess's history), plugin for
 -- plugin and record for record.
 local tes3 = require '@tes3'
 

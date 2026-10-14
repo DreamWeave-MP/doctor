@@ -7,7 +7,7 @@ command line's argument lists read; and the command line itself, warm and run on
 
   jess run --capability filesystem.read --capability filesystem.write \
     --capability process.spawn --package . --package-path .. \
-    bench/bench.luau <scratch> [filter] [jess binary] [package path]
+    bench/bench.jsl <scratch> [filter] [jess binary] [package path]
 
 Four load orders, written to a folder under `<scratch>`, which is removed afterwards:
 
@@ -40,10 +40,10 @@ what the report writes without quotes; the bench refuses any other.
 
 Given the jess binary to start (and `process.spawn`), the cold workloads too: what one process
 pays for one command from its first `require` on. Each is the median of seven processes running
-`cold.luau`, which find the packages this one depends on in the package path, the folder above
+`cold.jsl`, which find the packages this one depends on in the package path, the folder above
 this package without one. And the load workload: what the doctor's own modules cost a process
 that already has the packages they depend on, the median of fifteen processes running
-`load.luau`. Every run of the command pays it, whatever it checks.
+`load.jsl`. Every run of the command pays it, whatever it checks.
 ]]
 
 local bytes = require '@dream/bytes'
@@ -84,7 +84,7 @@ local function runs(name: string): boolean
   return false
 end
 
---- Where this file is, from its chunk name: `cold.luau` is beside it.
+--- Where this file is, from its chunk name: `cold.jsl` is beside it.
 local function here(): string
   local source = debug.info(1, 's')
   local first = string.sub(source, 1, 1)
@@ -751,7 +751,7 @@ local function cold(name: string, expected: string, argv: { string }, built: Ord
     PackagePath,
     -- Past this, an argument that starts with a dash is the script's and not `jess run`'s.
     '--',
-    `{Here}/cold.luau`,
+    `{Here}/cold.jsl`,
   }
 
   for _, argument in argv do
@@ -786,7 +786,7 @@ local function load(name: string)
   if not binary or not runs(name) then return end
 
   local arguments =
-    { 'run', '--package', `{Here}/..`, '--package-path', PackagePath, `{Here}/load.luau` }
+    { 'run', '--package', `{Here}/..`, '--package-path', PackagePath, `{Here}/load.jsl` }
   local samples: { number } = {}
 
   for run = 1, 15 do

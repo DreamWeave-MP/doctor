@@ -1,6 +1,6 @@
 # doctor benchmarks
 
-`bench/bench.luau` times the doctor the way it is reached: `@doctor` called with an `@openmw`
+`bench/bench.jsl` times the doctor the way it is reached: `@doctor` called with an `@openmw`
 Context over load orders the bench builds with `@tes3`, the argument lists `@doctor/cli` reads,
 and the command line, warm and from a cold start. There are four load orders:
 
@@ -23,8 +23,8 @@ and the command line, warm and from a cold start. There are four load orders:
 
 A warm workload is warmed up, sized to a batch of about a tenth of a second, and reported as the
 median of seven batches with a full collection between them. A `cold:` workload is a fresh
-process a sample: seven running `bench/cold.luau`, the command line run once and timed inside the
-script from its first `require`; or fifteen running `bench/load.luau`, which times the doctor's
+process a sample: seven running `bench/cold.jsl`, the command line run once and timed inside the
+script from its first `require`; or fifteen running `bench/load.jsl`, which times the doctor's
 own two modules loading once the packages they depend on are there. Every check's report is
 weighed before the first batch and after the last, its counts and a digest of the file it wrote
 with the scratch folder's path taken out, against what the bench has pinned, so a path that
@@ -33,7 +33,7 @@ stops doing the work stops the run instead of posting a time.
 ```sh
 jess run --capability filesystem.read --capability filesystem.write \
   --capability process.spawn --package jpk/doctor --package-path jpk \
-  jpk/doctor/bench/bench.luau <scratch> [filter] [jess binary] [package path]
+  jpk/doctor/bench/bench.jsl <scratch> [filter] [jess binary] [package path]
 ```
 
 Without the binary (and `process.spawn`) the cold workloads are skipped. The doctor reports
@@ -123,7 +123,7 @@ timed with a clock in a scratch copy of the module.
   holds a quote or a backslash and no control character is escaped by `gsub` with a replacement
   string, where every escape was a call. The old and new spellings were compared over every
   string of one and two bytes and 3.2 million of three and four before the change, and
-  `tests/run.luau` pins 33 names as YAML and JSON write them.
+  `tests/run.jsl` pins 33 names as YAML and JSON write them.
 - **A cold start** (`bd26383`; `--help` 1.44x, the command with `--checks masters,content`
   1.41x, both from the table above). `@plugin-assets`, with the model reader behind it, takes a
   process that has what every run of the doctor loads (`@tes3`, `@load-order`, `@openmw`) 80 ms

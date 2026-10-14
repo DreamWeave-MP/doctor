@@ -61,7 +61,7 @@ local function empty(name: string, content: { string }): Order
   return built
 end
 
---- The harness's load order: `build.luau`'s plugins, and its eleven content files.
+--- The harness's load order: `build.jsl`'s plugins, and its eleven content files.
 local function harness(name: string): Order
   local built = empty(name, fixture.content)
   fixture.build(built.data)
