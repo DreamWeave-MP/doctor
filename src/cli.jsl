@@ -1,5 +1,4 @@
 --!strict
---!native
 --[[
 @doctor/cli: the doctor's command line.
 

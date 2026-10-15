@@ -1,5 +1,4 @@
 --!strict
---!native
 --[[
 @doctor: a load-order health check, for when the game is broken and you'd like to know why. Call
 it with (state, openmw), openmw being the load order's configuration as an `@openmw` Context
@@ -251,6 +250,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
 
   local function add(finding: Finding) table.insert(findings, finding) end
 
+  @native
   local function isScripts(name: string): boolean
     return string.find(string.lower(name), '%.omwscripts$') ~= nil
   end
@@ -741,7 +741,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     CheckRank[check] = index
   end
 
-  table.sort(kept, function(left: Finding, right: Finding): boolean
+  table.sort(kept, @native function(left: Finding, right: Finding): boolean
     if left.severity ~= right.severity then
       return SeverityRank[left.severity] < SeverityRank[right.severity]
     end
@@ -782,6 +782,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   -- The report is written by hand, keys in a fixed order, so two runs' reports diff cleanly.
   local function scalar(value: string | number | boolean): Node return { scalar = value } end
 
+  @native
   local function strings(values: { string }): Node
     local items = {}
     for _, value in values do
@@ -854,6 +855,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     return JsonEscapes[character] or string.format('\\u%04x', string.byte(character))
   end
 
+  @native
   local function jsonString(text: string): string
     if not JsonEscaped:isMatch(text) then return `"{text}"` end
 
@@ -868,6 +870,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   -- Words YAML reads as something other than a string, in any case.
   local YamlWords = set { 'true', 'false', 'null', 'yes', 'no', 'on', 'off' }
 
+  @native
   local function scalarText(value: string | number | boolean, yaml: boolean): string
     if type(value) == 'number' then
       return if value % 1 == 0 then string.format('%d', value) else tostring(value)
@@ -884,6 +887,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     return jsonString(value)
   end
 
+  @native
   local function yamlLines(node: Node, indent: string, lines: { string })
     for _, field in node.map or {} do
       local child = field.node
