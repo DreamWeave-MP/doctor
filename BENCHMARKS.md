@@ -186,3 +186,59 @@ process 105 ms to load and `@openmw` with the packages under it 145 more (seven 
 under the lock), neither this package's to shorten, and `--help` still pays both, 260 ms, to
 print a page of text. `@doctor/cli` needs `@doctor` for the types of its options, and Luau has no
 way to ask for a module's types without loading it.
+
+## Which modules are native, and why
+
+Jess compiles to machine code only what is marked (`--!native` on a module, `@native` on one
+function), and every load pays for what is marked. A module carries `--!native` when a row below
+spends its time there and the module is small (12 KB or less); a larger module carries `@native`
+on the functions the row spends its time in, and nothing else.
+
+Measured 2026-10-15 with `jess 0.1.0`, the verified release build of jess `07c38cb` on l3i
+2.0.3, on the i7-10870H, the one-minute load 1.41 and 1.42 at the start of the two
+sessions. In each session the bench ran alternately on this package and on a copy of it with
+every module marked, three fresh runs of `bench/bench.jsl` each, every run's row the median of
+its batches; a column is the median of the three, and a ratio is against the all-marked runs of
+the same session. Which functions a row spends its time in comes from `jess run --profile` of
+that row alone, unmarked. The load cost is a fresh `jess run --package <this package>
+--package-path jpk` of a script that only requires `@doctor`, the two sides alternating, the
+median of five each after one warm-up.
+
+| Requiring `@doctor` | All marked | This state |
+| --- | ---: | ---: |
+| Unmarked | 0.139 s | 0.132 s |
+| Final | 0.142 s | 0.135 s |
+
+| Row | All marked (ms) | Unmarked / all marked | Final (ms) | Final / all marked |
+| --- | ---: | ---: | ---: | ---: |
+| check a load order, every check | 42.09 | 1.025× | 41.47 | 0.985× |
+| check a load order, every check, as json | 43.31 | 1.016× | 42.46 | 0.980× |
+| check a load order, masters and content | 2.941 | 1.027× | 2.638 | 0.897× |
+| check a load order, assets | 28.32 | **1.068×** | 27.29 | 0.964× |
+| check a load order, meshes | 28.71 | 0.999× | 28.84 | 1.005× |
+| check a load order, dirt | 12.23 | 1.021× | 12.58 | 1.028× |
+| check a load order, conflicts | 7.815 | 1.047× | 8.170 | 1.045× |
+| check a load order, errors only | 37.32 | 1.010× | 40.66 | **1.090×** |
+| check thirty plugins, every check | 44.11 | 1.044× | 45.54 | 1.033× |
+| check thirty plugins, conflicts | 13.47 | **1.097×** | 13.99 | 1.039× |
+| check thirty plugins, conflicts, as json | 14.87 | **1.087×** | 15.59 | 1.048× |
+| check a master missing its 4,000 models, assets | 40.48 | **1.080×** | 39.69 | 0.981× |
+| check a master missing its 4,000 models, assets, as json | 40.75 | 1.017× | 39.43 | 0.968× |
+| check three hundred plugins, masters and content | 8.572 | 1.006× | 8.818 | 1.029× |
+| check three hundred plugins, every check | 31.09 | **1.073×** | 31.95 | 1.028× |
+| parse 8 argument lists | 0.00981 | **1.250×** | 0.01286 | **1.310×** |
+| the command, a load order | 39.44 | 1.030× | 41.91 | **1.063×** |
+
+What carries the directive (every function here is one a row spends its time in, unmarked):
+
+- `init`, by function: `isScripts`, a closure at line 744, `strings`, `jsonString`, `scalarText`,
+  `yamlLines`.
+- Unmarked: `cli`, `main`.
+
+`cli` and `main` parse a command line once a run and are never marked, so `parse 8 argument
+lists` (1.31x, of a 10 µs call) is slower than all marked by rule. The two other rows above 5%
+are checking a load order for errors (1.09x) and the command over a load order (1.06x), 40 ms
+calls whose remaining time is spread over the rest of `init`. Marking `init` whole would give back
+the load this saves (requiring `@doctor` costs what the package unmarked costs, within a
+millisecond) for a few milliseconds of a check; a doctor run over a real load order is twelve
+seconds, nearly all of it in `@nif`.
