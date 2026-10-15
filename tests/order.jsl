@@ -5,6 +5,7 @@
 -- data-local), and a check over one that keeps what the tool printed.
 local doctor = require '@doctor'
 local fixture = require './build'
+local fs = require '@dream/fs'
 local openmw = require '@openmw'
 local tes3 = require '@tes3'
 
@@ -37,19 +38,20 @@ setfenv(doctor, setmetatable({ print = keep }, { __index = getfenv(doctor) }))
 
 --- A fresh, empty load order named `name`, with `content` as its `content=` lines, in order.
 local function empty(name: string, content: { string }): Order
-  local root = jess.fs.join(scratch, 'doctor', name)
-  if jess.fs.exists(root) then jess.fs.remove(root) end
+  local root = fs.join(scratch, 'doctor', name)
+  if fs.exists(root) then fs.remove(root) end
 
   local built: Order = {
     root = root,
-    config = jess.fs.join(root, 'config'),
-    cfg = jess.fs.join(root, 'config', 'openmw.cfg'),
-    data = jess.fs.join(root, 'data'),
-    out = jess.fs.join(root, 'out'),
+    config = fs.join(root, 'config'),
+    cfg = fs.join(root, 'config', 'openmw.cfg'),
+    data = fs.join(root, 'data'),
+    out = fs.join(root, 'out'),
   }
 
   for _, folder in { built.data, built.config, built.out } do
-    jess.fs.createDir(folder)
+    local done, problem = fs.mkdir(folder, { recursive = true })
+    if not done then error(problem, 0) end
   end
 
   local lines = { `data="{built.data}"`, `data-local="{built.out}"` }
@@ -57,7 +59,8 @@ local function empty(name: string, content: { string }): Order
     table.insert(lines, `content={file}`)
   end
 
-  jess.fs.write(built.cfg, table.concat(lines, '\n') .. '\n')
+  local done, problem = fs.writeFile(built.cfg, table.concat(lines, '\n') .. '\n', { atomic = true, createParents = true })
+  if not done then error(problem, 0) end
   return built
 end
 
@@ -91,7 +94,8 @@ end
 local function order(name: string, files: { [string]: string | buffer }, content: { string }): Order
   local built = empty(name, content)
   for path, bytes in files do
-    jess.fs.write(jess.fs.join(built.data, path), bytes)
+    local done, problem = fs.writeFile(fs.join(built.data, path), bytes, { atomic = true, createParents = true })
+    if not done then error(problem, 0) end
   end
 
   return built
@@ -121,12 +125,15 @@ end
 local function files(folder: string): { [string]: string }
   local found: { [string]: string } = {}
   local function walk(directory: string)
-    for _, name in jess.fs.list(directory) do
-      local path = jess.fs.join(directory, name)
-      if jess.fs.isDir(path) then
+    local names, problem = fs.list(directory)
+    if not names then error(problem, 0) end
+
+    for _, name in names do
+      local path = fs.join(directory, name)
+      if fs.isDir(path) then
         walk(path)
       else
-        found[path] = jess.fs.read(path)
+        found[path] = fs.readFileString(path)
       end
     end
   end

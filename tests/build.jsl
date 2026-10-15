@@ -3,6 +3,7 @@
 -- A load order with one of everything the doctor looks for, built with `@tes3`: the port of the
 -- builder the tool's old harness ran (`tests/doctor/build.jsl` in jess's history), plugin for
 -- plugin and record for record.
+local fs = require '@dream/fs'
 local tes3 = require '@tes3'
 
 type Fields = { [string]: unknown }
@@ -44,11 +45,15 @@ local function static(id: string, mesh: string): Fields return { type = 'Static'
 local function build(dataFolder: string)
   local function save(name: string, plugin: tes3.Plugin)
     plugin:updateRecordCount()
-    jess.fs.write(jess.fs.join(dataFolder, name), plugin:save())
+    local done, problem = fs.writeFile(fs.join(dataFolder, name), plugin:save(), { atomic = true, createParents = true })
+    if not done then error(problem, 0) end
   end
 
   local function master(name: string): Master
-    return { name = name, size = assert(jess.fs.size(jess.fs.join(dataFolder, name))) }
+    local fileStat, problem = fs.stat(fs.join(dataFolder, name))
+    if not fileStat then error(problem, 0) end
+
+    return { name = name, size = assert(fileStat.size) }
   end
 
   local function plugin(name: string, masters: { Master }, records: { Fields })
@@ -101,8 +106,10 @@ local function build(dataFolder: string)
   plugin('Orphan.esp', { { name = 'Gone.esm', size = 1 } }, {})
   plugin('Needs.esp', { master 'Unlisted.esm' }, {})
 
-  jess.fs.write(jess.fs.join(dataFolder, 'Broken.esp'), 'not a plugin')
-  jess.fs.write(jess.fs.join(dataFolder, 'meshes', 'doctor', 'rock.nif'), 'not a model')
+  local done, problem = fs.writeFile(fs.join(dataFolder, 'Broken.esp'), 'not a plugin', { atomic = true, createParents = true })
+  if not done then error(problem, 0) end
+  local done, problem = fs.writeFile(fs.join(dataFolder, 'meshes', 'doctor', 'rock.nif'), 'not a model', { atomic = true, createParents = true })
+  if not done then error(problem, 0) end
 end
 
 return table.freeze { build = build, content = Content }

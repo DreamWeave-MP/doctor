@@ -22,6 +22,7 @@ them know less than the doctor: `tes3cmd header --update-masters` and `tes3cmd c
 --duplicate-records` look for a plugin's masters beside it, not through the load order.
 ]]
 
+local backup = require '@jess/backup'
 local bytes = require '@dream/bytes'
 local fs = require '@dream/fs'
 local loadOrder = require '@load-order'
@@ -245,7 +246,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
       `doctor: unknown minSeverity "{options.minSeverity}"; expected error, warning, or info`
     )
 
-  local outputPath = options.output or jess.fs.join(openmw.userConfigDir, `jess-doctor.{format}`)
+  local outputPath = options.output or fs.join(openmw.userConfigDir, `jess-doctor.{format}`)
   local findings: { Finding } = {}
 
   local function add(finding: Finding) table.insert(findings, finding) end
@@ -485,7 +486,8 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     local size = sizes[position]
     if size == nil then
       local path = content[position].path
-      size = ((if path then jess.fs.size(path) else nil) or false) :: number | false
+      local stat = if path then fs.stat(path) else nil
+      size = (if stat then stat.size else false) :: number | false
       sizes[position] = size
     end
 
@@ -770,7 +772,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
   end
 
   local report: Report = {
-    config = jess.fs.join(openmw.userConfigDir, 'openmw.cfg'),
+    config = fs.join(openmw.userConfigDir, 'openmw.cfg'),
     output = outputPath,
     contentFiles = #content,
     plugins = #plugins,
@@ -953,7 +955,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
     return table.concat(lines, '\n') .. '\n'
   end
 
-  local written = jess.fs.write(outputPath, render(), { backup = true })
+  local written = backup.write(outputPath, render())
   report.backup = written.backup
   options.report = report
 

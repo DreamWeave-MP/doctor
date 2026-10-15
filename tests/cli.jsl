@@ -4,6 +4,7 @@
 -- why, the exit status of each way a run can end, and whole runs over the harness's load order.
 -- Its messages go to the suite's own standard error.
 local cli = require '@doctor/cli'
+local fs = require '@dream/fs'
 local json = require '@jess/json'
 local order = require './order'
 local test = require '@jess/test'
@@ -184,8 +185,8 @@ suite.describe('run', function()
   suite.it('returns 8 for a configuration that isn\'t there, and writes nothing', function()
     local built = order.harness 'cli-missing'
     local before = order.files(built.root)
-    expect(cli.run { '--config', jess.fs.join(built.root, 'nowhere/openmw.cfg') }).toBe(8)
-    expect(cli.run { '--config', jess.fs.join(built.root, 'nowhere') }).toBe(8)
+    expect(cli.run { '--config', fs.join(built.root, 'nowhere/openmw.cfg') }).toBe(8)
+    expect(cli.run { '--config', fs.join(built.root, 'nowhere') }).toBe(8)
 
     -- A folder is the configuration only when it holds an openmw.cfg.
     expect(cli.run { '--config', built.data }).toBe(8)
@@ -200,12 +201,12 @@ suite.describe('run', function()
     -- The harness's first scenario, through the command line: six errors, and a check that ran.
     expect(cli.run { '--config', built.cfg, '--format', 'json' }).toBe(0)
 
-    local path = jess.fs.join(built.config, 'jess-doctor.json')
+    local path = fs.join(built.config, 'jess-doctor.json')
     local printed = order.takePrinted()
     expect(string.sub(printed, 1, 57)).toBe 'doctor: 6 errors, 5 warnings, 1 info in 11 content files\n'
     expect(string.sub(printed, -#`report: {path}\n`)).toBe(`report: {path}\n`)
 
-    local text = jess.fs.read(path)
+    local text = fs.readFileString(path)
     local report = json.decode(text) :: { [string]: any }
     expect(report.config).toBe(built.cfg)
     expect(report.summary.errors).toBe(6)
@@ -219,18 +220,19 @@ suite.describe('run', function()
 
   suite.it('finds the openmw.cfg in the folder --config names, under any capitalization', function()
     local built = order.harness 'cli-folder'
-    local shouted = jess.fs.join(built.config, 'OpenMW.cfg')
-    jess.fs.write(shouted, jess.fs.read(built.cfg))
-    jess.fs.remove(built.cfg)
+    local shouted = fs.join(built.config, 'OpenMW.cfg')
+    local done, problem = fs.writeFile(shouted, fs.readFileString(built.cfg), { atomic = true, createParents = true })
+    if not done then error(problem, 0) end
+    fs.remove(built.cfg)
     order.takePrinted()
     expect(cli.run { '--config', built.config, '--checks', 'content', '--min-severity=error' }).toBe(0)
     expect(string.sub(order.takePrinted(), 1, 57)).toBe 'doctor: 2 errors, 0 warnings, 0 info in 11 content files\n'
-    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.yaml'))).toBe(true)
+    expect(fs.exists(fs.join(built.config, 'jess-doctor.yaml'))).toBe(true)
   end)
 
   suite.it('hands every flag to the doctor as its option', function()
     local built = order.harness 'cli-options'
-    local output = jess.fs.join(built.out, 'checked.json')
+    local output = fs.join(built.out, 'checked.json')
     order.takePrinted()
     expect(cli.run {
       '--config',
@@ -247,9 +249,9 @@ suite.describe('run', function()
     }).toBe(0)
 
     -- The harness's third scenario: five errors from the two checks, in the file asked for.
-    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.json'))).toBe(false)
+    expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
 
-    local report = json.decode(jess.fs.read(output)) :: { [string]: any }
+    local report = json.decode(fs.readFileString(output)) :: { [string]: any }
     expect(report.checks).toEqual { 'masters', 'content' }
     expect(report.summary).toEqual {
       errors = 5,
@@ -282,7 +284,8 @@ suite.describe('run', function()
 
   suite.it('returns 9 for a configuration that can\'t be read', function()
     local built = order.harness 'cli-unreadable'
-    jess.fs.write(built.cfg, 'encoding=klingon\n')
+    local done, problem = fs.writeFile(built.cfg, 'encoding=klingon\n', { atomic = true, createParents = true })
+    if not done then error(problem, 0) end
     expect(cli.run { '--config', built.cfg }).toBe(9)
   end)
 
@@ -290,9 +293,10 @@ suite.describe('run', function()
     local built = order.harness 'cli-unwritable'
 
     -- A file where the report's folder would be.
-    local blocked = jess.fs.join(built.out, 'blocked')
-    jess.fs.write(blocked, 'a file')
-    expect(cli.run { '--config', built.cfg, '--checks', 'content', '--output', jess.fs.join(blocked, 'report.yaml') }).toBe(9)
+    local blocked = fs.join(built.out, 'blocked')
+    local done, problem = fs.writeFile(blocked, 'a file', { atomic = true, createParents = true })
+    if not done then error(problem, 0) end
+    expect(cli.run { '--config', built.cfg, '--checks', 'content', '--output', fs.join(blocked, 'report.yaml') }).toBe(9)
   end)
 end)
 

@@ -5,6 +5,7 @@
 -- the doctor looks for. The rest take a check, a severity, or an option each, on load orders made
 -- for them; the dirt cases hold `@tes3cmd`'s lint to the messages the old `plugin:lint` wrote.
 local doctor = require '@doctor'
+local fs = require '@dream/fs'
 local json = require '@jess/json'
 local nif = require '@nif'
 local order = require './order'
@@ -239,14 +240,14 @@ suite.describe('the harness\'s load order', function()
     local before = order.files(built.root)
     local run = order.check(built, { format = 'json' })
     local report = run.report
-    local path = jess.fs.join(built.config, 'jess-doctor.json')
+    local path = fs.join(built.config, 'jess-doctor.json')
     expect(has(run.printed, 'doctor: 6 errors')).toBe(true)
     expect(has(run.printed, `report: {path}\n`)).toBe(true)
     expect(report.output).toBe(path)
     expect(report.backup).toBeNil()
 
     -- `state.doctor.report` is the report written.
-    local text = jess.fs.read(path)
+    local text = fs.readFileString(path)
     expect(json.decode(text)).toEqual(written(report))
     expect(string.sub(text, 1, #rooted(JsonStart, built.root))).toBe(rooted(JsonStart, built.root))
     expect(string.sub(text, -#rooted(JsonEnd, built.root))).toBe(rooted(JsonEnd, built.root))
@@ -279,7 +280,7 @@ suite.describe('the harness\'s load order', function()
       expect(has(finding.message, 'Patch.esp replaces')).toBe(false)
     end
 
-    local dirty = jess.fs.join(built.data, 'Dirty.esp')
+    local dirty = fs.join(built.data, 'Dirty.esp')
     expect(find(report, 'evilGmsts', 'Dirty.esp has 1 evil GMST').fix).toBe(
       `\`tes3cmd clean {dirty} --evil-gmsts\``
     )
@@ -307,17 +308,17 @@ suite.describe('the harness\'s load order', function()
     -- A second run backs the first report up.
     local again = order.check(built, { format = 'json' })
     expect(again.report.backup).toBe(path .. '.bak')
-    expect(jess.fs.read(path .. '.bak')).toBe(text)
+    expect(fs.readFileString(path .. '.bak')).toBe(text)
     expect(has(again.printed, `report: {path} (the last one is in {path}.bak)\n`)).toBe(true)
   end)
 
   suite.it('is reported as YAML beside the user config by default', function()
     local built = order.harness 'yaml'
     local run = order.check(built, {})
-    local path = jess.fs.join(built.config, 'jess-doctor.yaml')
+    local path = fs.join(built.config, 'jess-doctor.yaml')
     expect(has(run.printed, `report: {path}\n`)).toBe(true)
 
-    local text = jess.fs.read(path)
+    local text = fs.readFileString(path)
     expect(string.sub(text, 1, #`config: {built.cfg}`)).toBe(`config: {built.cfg}`)
     for _, expected in {
       'summary:\n  errors: 6\n',
@@ -335,16 +336,16 @@ suite.describe('the harness\'s load order', function()
 
   suite.it('is checked with the checks, severity, and output asked for', function()
     local built = order.harness 'options'
-    local output = jess.fs.join(built.out, 'checked.json')
+    local output = fs.join(built.out, 'checked.json')
     local run = order.check(built, {
       checks = { 'masters', 'content' },
       minSeverity = 'error',
       format = 'json',
       output = output,
     })
-    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.json'))).toBe(false)
+    expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
 
-    local report = json.decode(jess.fs.read(output)) :: doctor.Report
+    local report = json.decode(fs.readFileString(output)) :: doctor.Report
     expect(report.checks).toEqual { 'masters', 'content' }
     expect(report.summary.errors).toBe(#report.findings)
     expect(report.summary.warnings).toBe(0)
@@ -447,7 +448,7 @@ suite.describe('dirt', function()
       ['Dirty.esp'] = dirty:save(),
     }, { 'Base.esm', 'Dirty.esp' })
     local report = order.check(built, { checks = { 'dirt' } }).report
-    local path = jess.fs.join(built.data, 'Dirty.esp')
+    local path = fs.join(built.data, 'Dirty.esp')
     expect(report.summary).toEqual {
       errors = 0,
       warnings = 3,
@@ -510,7 +511,7 @@ suite.describe('dirt', function()
     expect(#report.findings).toBe(1)
     expect(report.findings[1].plugins).toEqual { 'My Mod.esp' }
     expect(report.findings[1].fix).toBe(
-      `\`tes3cmd clean "{jess.fs.join(built.data, 'My Mod.esp')}" --evil-gmsts\``
+      `\`tes3cmd clean "{fs.join(built.data, 'My Mod.esp')}" --evil-gmsts\``
     )
     expect(report.plugins).toBe(4)
   end)
@@ -533,7 +534,7 @@ suite.describe('dirt', function()
         -- In the order the load order first defines them.
         records = { 'STAT rock', 'MISC gem' },
         message = 'Named.esp has 2 records identical to its masters\' copies',
-        fix = `\`tes3cmd clean {jess.fs.join(built.data, 'Named.esp')} --duplicate-records\``,
+        fix = `\`tes3cmd clean {fs.join(built.data, 'Named.esp')} --duplicate-records\``,
       },
     }
 
@@ -559,7 +560,7 @@ suite.describe('masters', function()
         check = 'masterSize',
         plugins = { 'Wrong.esp', 'Base.esm' },
         message = `Wrong.esp records Base.esm as 7 bytes; it's {size}`,
-        fix = `\`tes3cmd header {jess.fs.join(built.data, 'Wrong.esp')} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
+        fix = `\`tes3cmd header {fs.join(built.data, 'Wrong.esp')} --update-masters\` (OpenMW doesn't mind; Morrowind.exe and the CS do)`,
       },
     }
 
@@ -917,7 +918,7 @@ suite.describe('options', function()
   suite.it('print the first errors and warnings, or everything when verbose', function()
     local built = order.harness 'printed'
     local brief = order.check(built, {})
-    local path = jess.fs.join(built.config, 'jess-doctor.yaml')
+    local path = fs.join(built.config, 'jess-doctor.yaml')
     local head = 'doctor: 6 errors, 5 warnings, 1 info in 11 content files\n'
       .. '  by check: missingContent 1, unreadablePlugin 1, missingMaster 2, masterOrder 1, conflict 1,'
       .. ' missingAsset 2, mesh 1, evilGmsts 1, junkCells 1, identicalToMaster 1\n'
@@ -951,14 +952,14 @@ suite.describe('options', function()
       'doctor: unknown minSeverity "fatal"; expected error, warning, or info'
     )
     expect(function() doctor({}) end).toThrow 'doctor: there is no OpenMW config to check'
-    expect(jess.fs.exists(jess.fs.join(built.config, 'jess-doctor.yaml'))).toBe(false)
+    expect(fs.exists(fs.join(built.config, 'jess-doctor.yaml'))).toBe(false)
   end)
 
   suite.it('run every check without options, leaving them and the report in the state', function()
     local built = order.harness 'defaults'
     local run = order.check(built)
     expect(run.report.checks).toEqual { 'masters', 'content', 'assets', 'meshes', 'dirt', 'conflicts' }
-    expect(run.report.output).toBe(jess.fs.join(built.config, 'jess-doctor.yaml'))
+    expect(run.report.output).toBe(fs.join(built.config, 'jess-doctor.yaml'))
     expect((run.state.doctor :: doctor.Options).report).toBe(run.report)
   end)
 end)
@@ -1019,7 +1020,7 @@ suite.describe('a string in the report', function()
     local sentence = ' is in the load order, but no data folder has it'
 
     local asYaml = order.check(built, { checks = { 'content' } })
-    local text = jess.fs.read(jess.fs.join(built.config, 'jess-doctor.yaml'))
+    local text = fs.readFileString(fs.join(built.config, 'jess-doctor.yaml'))
     for _, spelling in Spellings do
       local message = if spelling.bare
         then spelling.name .. sentence
@@ -1031,7 +1032,7 @@ suite.describe('a string in the report', function()
     expect(yaml.decode(text)).toEqual(written(asYaml.report))
 
     local asJson = order.check(built, { checks = { 'content' }, format = 'json' })
-    local document = jess.fs.read(jess.fs.join(built.config, 'jess-doctor.json'))
+    local document = fs.readFileString(fs.join(built.config, 'jess-doctor.json'))
     for _, spelling in Spellings do
       local plugins = `      "plugins": [\n        "{spelling.json}"\n      ],\n`
       expect(has(document, `{plugins}      "message": "{spelling.json}{sentence}",\n`)).toBe(true)
