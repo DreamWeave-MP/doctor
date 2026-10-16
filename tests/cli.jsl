@@ -9,6 +9,15 @@ local json = require '@jess/json'
 local order = require './order'
 local test = require '@jess/test'
 
+--- The text of the file at `path`, raising the read's own message when there is none.
+local function readText(path: string): string
+  local text, problem = fs.readFileString(path)
+  if not text then error(problem, 0) end
+
+  return text
+end
+
+
 local expect = test.expect
 local suite = test.new()
 
@@ -221,7 +230,7 @@ suite.describe('run', function()
   suite.it('finds the openmw.cfg in the folder --config names, under any capitalization', function()
     local built = order.harness 'cli-folder'
     local shouted = fs.join(built.config, 'OpenMW.cfg')
-    local done, problem = fs.writeFile(shouted, fs.readFileString(built.cfg), { atomic = true, createParents = true })
+    local done, problem = fs.writeFile(shouted, readText(built.cfg), { atomic = true, createParents = true })
     if not done then error(problem, 0) end
     fs.remove(built.cfg)
     order.takePrinted()
@@ -251,7 +260,7 @@ suite.describe('run', function()
     -- The harness's third scenario: five errors from the two checks, in the file asked for.
     expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
 
-    local report = json.decode(fs.readFileString(output)) :: { [string]: any }
+    local report = json.decode(readText(output)) :: { [string]: any }
     expect(report.checks).toEqual { 'masters', 'content' }
     expect(report.summary).toEqual {
       errors = 5,

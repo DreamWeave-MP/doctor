@@ -13,6 +13,15 @@ local tes3 = require '@tes3'
 local test = require '@jess/test'
 local yaml = require '@jess/yaml'
 
+--- The text of the file at `path`, raising the read's own message when there is none.
+local function readText(path: string): string
+  local text, problem = fs.readFileString(path)
+  if not text then error(problem, 0) end
+
+  return text
+end
+
+
 local expect = test.expect
 local suite = test.new()
 
@@ -308,7 +317,7 @@ suite.describe('the harness\'s load order', function()
     -- A second run backs the first report up.
     local again = order.check(built, { format = 'json' })
     expect(again.report.backup).toBe(path .. '.bak')
-    expect(fs.readFileString(path .. '.bak')).toBe(text)
+    expect(readText(path .. '.bak')).toBe(text)
     expect(has(again.printed, `report: {path} (the last one is in {path}.bak)\n`)).toBe(true)
   end)
 
@@ -345,7 +354,7 @@ suite.describe('the harness\'s load order', function()
     })
     expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
 
-    local report = json.decode(fs.readFileString(output)) :: doctor.Report
+    local report = json.decode(readText(output)) :: doctor.Report
     expect(report.checks).toEqual { 'masters', 'content' }
     expect(report.summary.errors).toBe(#report.findings)
     expect(report.summary.warnings).toBe(0)

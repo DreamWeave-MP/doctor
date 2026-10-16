@@ -54,6 +54,15 @@ local openmw = require '@openmw'
 local process = require '@dream/process'
 local tes3 = require '@tes3'
 
+--- The text of the file at `path`, raising the read's own message when there is none.
+local function readText(path: string): string
+  local text, problem = fs.readFileString(path)
+  if not text then error(problem, 0) end
+
+  return text
+end
+
+
 -- A build without the verified toolchain runs Luau slower than a release does, so a number from
 -- one says nothing about what ships.
 if not jess.bench.verified then
@@ -511,7 +520,7 @@ end
 local function weigh(options: doctor.Options): string
   local report = assert(options.report, 'the doctor left no report')
   local summary = report.summary
-  local digest = bytes.sha256(unrooted(io(fs.readFileString(report.output))))
+  local digest = bytes.sha256(unrooted(io(readText(report.output))))
 
   return `{report.plugins} of {report.contentFiles} files, {summary.errors} errors, {summary.warnings} warnings, {summary.info} info, {digest}`
 end
@@ -731,7 +740,7 @@ workload('the command, a load order', `0, {Whole}`, function(): number
   settle(Load, 'yaml')
   return cli.run { '--config', Load.config }
 end, function(status: number): string
-  return `{status}, {bytes.sha256(unrooted(io(fs.readFileString(`{Load.report}.yaml`))))}`
+  return `{status}, {bytes.sha256(unrooted(io(readText(`{Load.report}.yaml`))))}`
 end)
 
 --- Times the command line run once on `argv`, a process a sample. It must exit 0 and its last
