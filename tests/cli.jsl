@@ -215,7 +215,7 @@ suite.describe('run', function()
     expect(string.sub(printed, 1, 57)).toBe 'doctor: 6 errors, 5 warnings, 1 info in 11 content files\n'
     expect(string.sub(printed, -#`report: {path}\n`)).toBe(`report: {path}\n`)
 
-    local text = fs.readFileString(path)
+    local text = readText(path)
     local report = json.decode(text) :: { [string]: any }
     expect(report.config).toBe(built.cfg)
     expect(report.summary.errors).toBe(6)
@@ -236,7 +236,7 @@ suite.describe('run', function()
     order.takePrinted()
     expect(cli.run { '--config', built.config, '--checks', 'content', '--min-severity=error' }).toBe(0)
     expect(string.sub(order.takePrinted(), 1, 57)).toBe 'doctor: 2 errors, 0 warnings, 0 info in 11 content files\n'
-    expect(fs.exists(fs.join(built.config, 'jess-doctor.yaml'))).toBe(true)
+    expect((fs.exists(fs.join(built.config, 'jess-doctor.yaml')))).toBe(true)
   end)
 
   suite.it('hands every flag to the doctor as its option', function()
@@ -258,7 +258,7 @@ suite.describe('run', function()
     }).toBe(0)
 
     -- The harness's third scenario: five errors from the two checks, in the file asked for.
-    expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
+    expect((fs.exists(fs.join(built.config, 'jess-doctor.json')))).toBe(false)
 
     local report = json.decode(readText(output)) :: { [string]: any }
     expect(report.checks).toEqual { 'masters', 'content' }

@@ -256,7 +256,7 @@ suite.describe('the harness\'s load order', function()
     expect(report.backup).toBeNil()
 
     -- `state.doctor.report` is the report written.
-    local text = fs.readFileString(path)
+    local text = readText(path)
     expect(json.decode(text)).toEqual(written(report))
     expect(string.sub(text, 1, #rooted(JsonStart, built.root))).toBe(rooted(JsonStart, built.root))
     expect(string.sub(text, -#rooted(JsonEnd, built.root))).toBe(rooted(JsonEnd, built.root))
@@ -327,7 +327,7 @@ suite.describe('the harness\'s load order', function()
     local path = fs.join(built.config, 'jess-doctor.yaml')
     expect(has(run.printed, `report: {path}\n`)).toBe(true)
 
-    local text = fs.readFileString(path)
+    local text = readText(path)
     expect(string.sub(text, 1, #`config: {built.cfg}`)).toBe(`config: {built.cfg}`)
     for _, expected in {
       'summary:\n  errors: 6\n',
@@ -352,7 +352,7 @@ suite.describe('the harness\'s load order', function()
       format = 'json',
       output = output,
     })
-    expect(fs.exists(fs.join(built.config, 'jess-doctor.json'))).toBe(false)
+    expect((fs.exists(fs.join(built.config, 'jess-doctor.json')))).toBe(false)
 
     local report = json.decode(readText(output)) :: doctor.Report
     expect(report.checks).toEqual { 'masters', 'content' }
@@ -961,7 +961,7 @@ suite.describe('options', function()
       'doctor: unknown minSeverity "fatal"; expected error, warning, or info'
     )
     expect(function() doctor({}) end).toThrow 'doctor: there is no OpenMW config to check'
-    expect(fs.exists(fs.join(built.config, 'jess-doctor.yaml'))).toBe(false)
+    expect((fs.exists(fs.join(built.config, 'jess-doctor.yaml')))).toBe(false)
   end)
 
   suite.it('run every check without options, leaving them and the report in the state', function()
@@ -1029,7 +1029,7 @@ suite.describe('a string in the report', function()
     local sentence = ' is in the load order, but no data folder has it'
 
     local asYaml = order.check(built, { checks = { 'content' } })
-    local text = fs.readFileString(fs.join(built.config, 'jess-doctor.yaml'))
+    local text = readText(fs.join(built.config, 'jess-doctor.yaml'))
     for _, spelling in Spellings do
       local message = if spelling.bare
         then spelling.name .. sentence
@@ -1041,7 +1041,7 @@ suite.describe('a string in the report', function()
     expect(yaml.decode(text)).toEqual(written(asYaml.report))
 
     local asJson = order.check(built, { checks = { 'content' }, format = 'json' })
-    local document = fs.readFileString(fs.join(built.config, 'jess-doctor.json'))
+    local document = readText(fs.join(built.config, 'jess-doctor.json'))
     for _, spelling in Spellings do
       local plugins = `      "plugins": [\n        "{spelling.json}"\n      ],\n`
       expect(has(document, `{plugins}      "message": "{spelling.json}{sentence}",\n`)).toBe(true)
