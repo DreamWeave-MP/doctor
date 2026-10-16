@@ -302,7 +302,7 @@ suite.describe('the harness\'s load order', function()
     expect(has(mesh.fix, 'nif-assets check')).toBe(true)
 
     -- Most severe first.
-    local ranks = { error = 1, warning = 2, info = 3 }
+    local ranks: { [string]: number } = { error = 1, warning = 2, info = 3 }
     for position = 2, #report.findings do
       local earlier, later = report.findings[position - 1], report.findings[position]
       expect(ranks[earlier.severity] <= ranks[later.severity]).toBe(true)

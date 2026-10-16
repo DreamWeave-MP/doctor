@@ -384,11 +384,12 @@ local function loadOrder(): Order
   }
 
   for index = 1, 20 do
-    table.insert(dirt, {
+    local junk: Fields = {
       type = 'Cell',
       name = `Bench Junk {index}`,
       data = { flags = 'IS_INTERIOR', grid = { 0, 0 } },
-    })
+    }
+    table.insert(dirt, junk)
 
     table.insert(dirt, static(90000 + index, 0))
     table.insert(dirt, static(90000 + index, 0))
@@ -480,7 +481,7 @@ local function missingPack(): Order
   local built = order 'pack'
   local records: { Fields } = [
     for index in range(1, 4000)
-    => { type = 'Static', id = `bench_pack_{index}`, mesh = `pack\\{index % 64}\\piece_{index}.nif` }
+    => { type = 'Static', id = `bench_pack_{index}`, mesh = `pack\\{index % 64}\\piece_{index}.nif` } :: Fields
   ]
 
   configure(built, { write(built, 'Pack.esm', {}, records).name })

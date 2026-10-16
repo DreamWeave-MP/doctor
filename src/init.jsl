@@ -335,12 +335,13 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
         -- The plugins that opened and the ones that didn't each come back in the order asked.
         local failure = opened.failures[nextFailure]
         if failure and failure.name == entry.name and failure.path == path then
-          table.insert(inputs, failure)
+          table.insert(inputs, { name = failure.name, problem = failure.problem })
           nextFailure += 1
           continue
         end
 
-        table.insert(inputs, opened.plugins[nextPlugin])
+        local loaded = opened.plugins[nextPlugin]
+        table.insert(inputs, { name = loaded.name, plugin = loaded.plugin })
         nextPlugin += 1
       end
 
