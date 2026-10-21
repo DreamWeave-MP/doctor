@@ -1,0 +1,55 @@
+{
+  "schema_version": "3",
+  "document": "lock",
+  "project": "66795eef-6cc5-41f2-b8ed-d373c78e5f42",
+  "note": "Written by CI when a release tag is pushed: what each published release's archive contains. Do not edit.",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "locked_from": "fda7831817afe7ed214a103c9ac6da0bc6f782b5",
+      "artifacts": [
+        {
+          "id": "jpk",
+          "format": "jpk",
+          "filename": "org.dreamweave.doctor-0.1.0.jpk",
+          "media_type": "application/vnd.jess.jpk",
+          "size": 43071,
+          "digests": {
+            "sha256": "662f5f33dafb788ef804a99891efd87bb3e53a0a209dedde984089f94eb2915f"
+          },
+          "jess": {
+            "package": "org.dreamweave.doctor",
+            "jess_api": "1",
+            "content_digest": "42344e99b039bfb5ee710b2860477b6905d4c324ef6545cd432649e5b8b4a6fd",
+            "dependencies": {
+              "org.dreamweave.esm": "0.1",
+              "org.dreamweave.openmw-content": "0.1",
+              "org.dreamweave.openmw-install": "0.1",
+              "org.dreamweave.plugin-assets": "0.1",
+              "org.dreamweave.tes3cmd": "0.1"
+            }
+          }
+        }
+      ],
+      "runtimes": {},
+      "platforms": [],
+      "provides": [],
+      "relationships": [],
+      "components": [
+        {
+          "id": "main",
+          "name": "doctor",
+          "path": ".",
+          "required": true,
+          "default": true,
+          "requires": [],
+          "conflicts": [],
+          "suggested_with": []
+        }
+      ],
+      "groups": [],
+      "extensions": {},
+      "critical_extensions": []
+    }
+  ]
+}
