@@ -6,8 +6,8 @@
 local doctor = require '@doctor'
 local fixture = require './build'
 local fs = require '@dream/fs'
-local openmw = require '@openmw'
-local tes3 = require '@tes3'
+local openmw = require '@openmw-install'
+local tes3 = require '@esm'
 
 export type Fields = { [string]: unknown }
 

@@ -1,10 +1,10 @@
 --!strict
 --!native
--- A load order with one of everything the doctor looks for, built with `@tes3`: the port of the
+-- A load order with one of everything the doctor looks for, built with `@esm`: the port of the
 -- builder the tool's old harness ran (`tests/doctor/build.jsl` in jess's history), plugin for
 -- plugin and record for record.
 local fs = require '@dream/fs'
-local tes3 = require '@tes3'
+local tes3 = require '@esm'
 
 type Fields = { [string]: unknown }
 type Master = { name: string, size: number }

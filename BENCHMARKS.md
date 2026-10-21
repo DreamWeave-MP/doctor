@@ -1,7 +1,7 @@
 # doctor benchmarks
 
-`bench/bench.jsl` times the doctor the way it is reached: `@doctor` called with an `@openmw`
-Context over load orders the bench builds with `@tes3`, the argument lists `@doctor/cli` reads,
+`bench/bench.jsl` times the doctor the way it is reached: `@doctor` called with an `@openmw-install`
+Context over load orders the bench builds with `@esm`, the argument lists `@doctor/cli` reads,
 and the command line, warm and from a cold start. There are four load orders:
 
 - **A load order** with one of everything the doctor looks for: a master of 2,300 records and
@@ -104,7 +104,7 @@ timed with a clock in a scratch copy of the module.
   was asked of the list, a search of it for every finding, which is the square of the files: 30
   ms of the 64 on 4,000 of them. It is asked of a set.
 - **Placing masters** (`533d7be`; three hundred plugins by their headers 2.36x, checked whole
-  1.47x). `@load-order`'s `masters` is given the load order's names and lowers every one of them
+  1.47x). `@openmw-content`'s `masters` is given the load order's names and lowers every one of them
   for each plugin it is asked about: 14 ms of the 19 on three hundred plugins. The doctor already
   holds where each name is, built the same way (by name without case, a name listed twice where
   it is listed last), and reads the plugin's masters against that.
@@ -126,9 +126,9 @@ timed with a clock in a scratch copy of the module.
   `tests/run.jsl` pins 33 names as YAML and JSON write them.
 - **A cold start** (`bd26383`; `--help` 1.44x, the command with `--checks masters,content`
   1.41x, both from the table above). `@plugin-assets`, with the model reader behind it, takes a
-  process that has what every run of the doctor loads (`@tes3`, `@load-order`, `@openmw`) 80 ms
+  process that has what every run of the doctor loads (`@esm`, `@openmw-content`, `@openmw-install`) 80 ms
   to load, and `@tes3cmd` 34, each the median of seven processes under the lock; a process that
-  has `@tes3` alone pays 205 ms for `@plugin-assets`, most of it packages `@openmw` loads too.
+  has `@esm` alone pays 205 ms for `@plugin-assets`, most of it packages `@openmw-install` loads too.
   Only the asset and model checks use the first and only the dirt and conflict checks the
   second. Each is required where its checks start. A run of every check loads what it always
   did.
@@ -172,17 +172,17 @@ opens are 6.3 ms of 25 and the report 4.7.
 The second open is the one thing here that looks like the doctor's to shorten and wasn't. The
 asset check opens every plugin with the record types that name files, and the checks after it
 open them again whole (or by the types compared, or by their headers). One open can't stand for
-the other: `@tes3` doesn't frame a record a filtered open skips, so a plugin with a malformed
+the other: `@esm` doesn't frame a record a filtered open skips, so a plugin with a malformed
 record of a type the asset check never reads (a global whose subrecord runs past it, tried
 here) is reported today both as unreadable and for the model it names that nothing provides,
 and under one open would be reported only as unreadable. Reading each file once needs
-`@load-order` to open one read of it under two filters.
+`@openmw-content` to open one read of it under two filters.
 
 A findings list is sorted with a comparator: 0.2 ms for 300 findings and 0.5 for 632, under two
 percent of either check, and its last key is the message, which `argsort` has no order for.
 
-A cold run of every check is 420 ms, of which the check is about 30: `@tes3` takes a fresh
-process 105 ms to load and `@openmw` with the packages under it 145 more (seven processes each,
+A cold run of every check is 420 ms, of which the check is about 30: `@esm` takes a fresh
+process 105 ms to load and `@openmw-install` with the packages under it 145 more (seven processes each,
 under the lock), neither this package's to shorten, and `--help` still pays both, 260 ms, to
 print a page of text. `@doctor/cli` needs `@doctor` for the types of its options, and Luau has no
 way to ask for a module's types without loading it.

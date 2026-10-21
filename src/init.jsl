@@ -1,7 +1,7 @@
 --!strict
 --[[
 @doctor: a load-order health check, for when the game is broken and you'd like to know why. Call
-it with (state, openmw), openmw being the load order's configuration as an `@openmw` Context
+it with (state, openmw), openmw being the load order's configuration as an `@openmw-install` Context
 (`openmw.new`). It reads the load order and writes a report; it never changes a plugin or
 openmw.cfg.
 
@@ -25,9 +25,9 @@ them know less than the doctor: `tes3cmd header --update-masters` and `tes3cmd c
 local backup = require '@jess/backup'
 local bytes = require '@dream/bytes'
 local fs = require '@dream/fs'
-local loadOrder = require '@load-order'
-local openmwContext = require '@openmw'
-local tes3 = require '@tes3'
+local loadOrder = require '@openmw-content'
+local openmwContext = require '@openmw-install'
+local tes3 = require '@esm'
 
 export type Level = 'error' | 'warning' | 'info'
 
@@ -497,7 +497,7 @@ return function(state: { [string]: unknown }?, context: openmwContext.Context?)
 
   local function checkMasters(loaded: Loaded, position: number)
     for _, master in loaded.plugin:masters() do
-      -- As `@load-order`'s `masters` places one, without its list of every name for each plugin.
+      -- As `@openmw-content`'s `masters` places one, without its list of every name for each plugin.
       local masterPosition = positions[string.lower(master.name)]
 
       if not masterPosition then

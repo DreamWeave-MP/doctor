@@ -9,7 +9,7 @@ local fs = require '@dream/fs'
 local json = require '@jess/json'
 local nif = require '@nif'
 local order = require './order'
-local tes3 = require '@tes3'
+local tes3 = require '@esm'
 local test = require '@jess/test'
 local yaml = require '@jess/yaml'
 

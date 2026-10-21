@@ -9,10 +9,10 @@ Prints the command line's status for a run that went well and the seconds the tw
 tab-separated. `bench.jsl` runs it, fifteen processes a workload.
 ]]
 
-require '@load-order'
-require '@openmw'
+require '@openmw-content'
+require '@openmw-install'
 require '@plugin-assets'
-require '@tes3'
+require '@esm'
 require '@tes3cmd'
 
 local started = os.clock()

@@ -2,7 +2,7 @@
 --!native
 --[[
 The doctor, timed through its public modules: whole checks over load orders built here with
-`@tes3`, each `@doctor` called with an `@openmw` Context the way its command line calls it; the
+`@esm`, each `@doctor` called with an `@openmw-install` Context the way its command line calls it; the
 command line's argument lists read; and the command line itself, warm and run once.
 
   jess run --capability filesystem.read --capability filesystem.write \
@@ -50,9 +50,9 @@ local bytes = require '@dream/bytes'
 local cli = require '@doctor/cli'
 local doctor = require '@doctor'
 local fs = require '@dream/fs'
-local openmw = require '@openmw'
+local openmw = require '@openmw-install'
 local process = require '@dream/process'
-local tes3 = require '@tes3'
+local tes3 = require '@esm'
 
 --- The text of the file at `path`, raising the read's own message when there is none.
 local function readText(path: string): string

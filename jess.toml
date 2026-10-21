@@ -9,10 +9,10 @@ include = ["src", "tests"]
 tests = ["tests/run.jsl", "tests/cli.jsl", "tests/style.jsl"]
 
 [dependencies]
-"org.dreamweave.tes3" = "0.1"
+"org.dreamweave.esm" = "0.1"
 "org.dreamweave.tes3cmd" = "0.1"
-"org.dreamweave.load-order" = "0.1"
-"org.dreamweave.openmw" = "0.1"
+"org.dreamweave.openmw-content" = "0.1"
+"org.dreamweave.openmw-install" = "0.1"
 "org.dreamweave.plugin-assets" = "0.1"
 
 # The suite builds the models its load orders use with the NIF module.
@@ -29,7 +29,7 @@ tests = ["tests/run.jsl", "tests/cli.jsl", "tests/style.jsl"]
 
 [[layer]]
 id = "doctor.core"
-requires = ["tes3.core", "tes3cmd.core", "load-order.core", "openmw.core", "plugin-assets.core"]
+requires = ["esm.core", "tes3cmd.core", "openmw-content.core", "openmw-install.core", "plugin-assets.core"]
 exports = ["@doctor", "@doctor/cli"]
 
 # The doctor's command line: `src/main.jsl` hands its arguments to `@doctor/cli`. A run reads the

@@ -29,7 +29,7 @@ the doctor doesn't have, a report that can't be written). Messages go to standar
 
 local doctor = require '@doctor'
 local fs = require '@dream/fs'
-local openmw = require '@openmw'
+local openmw = require '@openmw-install'
 local process = require '@dream/process'
 
 export type Command = {
