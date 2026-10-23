@@ -8,13 +8,15 @@
   doctor [--config <openmw.cfg or its folder>] [options]
   doctor --help
 
-A run is @doctor over the configuration `--config` names, else the one `OPENMW_CONFIG` names: each
-a file, or a folder holding an openmw.cfg. Every option is one of that module's, as a flag of the
-same name: `--checks`, `--output`, `--format`, `--min-severity`, `--verbose`. A flag's value
-follows it, or is attached with `=`. `--checks` takes one name or several separated by commas, and
-may be given more than once: the option is a list, and with no original command line to follow,
-those are the two ways a list is usually spelled. `parse` reads an argument list into the command
-it names without running it, or says what it couldn't read.
+A run is @doctor over the configuration `--config` names, else the one `OPENMW_CONFIG` names, each
+a file or a folder holding an openmw.cfg, else OpenMW's own, in the folder OpenMW keeps it in on
+this platform, with OpenMW's own folders for its `?userconfig?` and `?userdata?`. Every option is
+one of that module's, as a flag of the same name: `--checks`, `--output`, `--format`,
+`--min-severity`, `--verbose`. A flag's value follows it, or is attached with `=`. `--checks` takes
+one name or several separated by commas, and may be given more than once: the option is a list,
+and with no original command line to follow, those are the two ways a list is usually spelled.
+`parse` reads an argument list into the command it names without running it, or says what it
+couldn't read.
 
 The doctor prints what it found itself, and what it found doesn't change the status: a load order
 full of errors is a check that ran. Values go to the doctor as they are spelled, and it decides
@@ -28,8 +30,8 @@ the doctor doesn't have, a report that can't be written). Messages go to standar
 ]]
 
 local doctor = require '@doctor'
-local fs = require '@dream/fs'
 local openmw = require '@openmw-install'
+local openmwConfig = require '@openmw-config'
 local process = require '@dream/process'
 
 export type Command = {
@@ -48,7 +50,7 @@ doctor: a load-order health check, for when the game is broken and you'd like to
 
 Reads the configuration's load order and writes a report of what is wrong with it, worst first,
 each finding with its fix. It never changes a plugin or openmw.cfg. The configuration is the one
---config names, else the one OPENMW_CONFIG names; there is no default.
+--config names, else the one OPENMW_CONFIG names, else OpenMW's own.
 
   --checks <name>[,<name>...]  the checks to run: masters, content, assets, meshes, dirt,
                                conflicts (default all of them); may be given more than once
@@ -146,38 +148,16 @@ local function parse(argv: { string }): (Command?, string?)
   return command, nil
 end
 
---- The openmw.cfg `given` names, or the one OPENMW_CONFIG does: a file, or a folder holding one
---- under any capitalization. Nil and why when neither names one.
+--- The openmw.cfg `given` names, else OPENMW_CONFIG's, else OpenMW's own: a file, or a folder
+--- holding one under any capitalization. Nil and why when there is none. A caller without the
+--- process.environment capability can only name it with --config, and an empty one names nothing.
 local function configuration(given: string?): (string?, string?)
-  local selected = given
-  -- A caller without the process.environment capability can only name the configuration with
-  -- --config, so there the variable counts as unset.
-  if not selected and jess.granted 'process.environment' then selected = process.env 'OPENMW_CONFIG' end
+  if given == '' then return nil, '--config names no configuration' end
 
-  if not selected or selected == '' then
-    return nil,
-      'an OpenMW configuration is required: pass --config <openmw.cfg or its folder> or set OPENMW_CONFIG'
-  end
+  local path, problem = openmwConfig.locate(given)
+  if path or given then return path, problem end
 
-  local info, message, kind = fs.stat(selected)
-  if not info and kind ~= 'notFound' and message then
-    return nil, `can't read the configuration '{selected}': {message}`
-  end
-
-  if info and info.isFile then return selected, nil end
-
-  if not info or not info.isDir then
-    return nil, `the configuration '{selected}' isn't a file or a folder`
-  end
-
-  local names, listProblem = fs.list(selected)
-  if not names then return nil, `can't list the configuration folder '{selected}': {listProblem}` end
-
-  for _, name in names do
-    if string.lower(name) == 'openmw.cfg' then return fs.join(selected, name), nil end
-  end
-
-  return nil, `the folder '{selected}' has no openmw.cfg`
+  return nil, `{problem}; pass --config <openmw.cfg or its folder> or set OPENMW_CONFIG`
 end
 
 --- What a raised error says: the doctor's own refusals as it words them, without the script
@@ -208,7 +188,9 @@ local function run(argv: { string }): number
   -- The configuration raises when it can't be read, and the doctor raises for a check, format,
   -- or severity it doesn't have, for a plugin without a header to read masters from, and for a
   -- report it can't write.
-  local checked, problem = pcall(function() doctor(state, openmw.new(path)) end)
+  local checked, problem = pcall(function()
+    doctor(state, openmw.new(path, { tokens = openmwConfig.userFolders() }))
+  end)
 
   if not checked then
     err(reason(problem))
