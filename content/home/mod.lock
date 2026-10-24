@@ -1,5 +1,5 @@
 {
-  "schema_version": "3",
+  "schema_version": "4",
   "document": "lock",
   "project": "66795eef-6cc5-41f2-b8ed-d373c78e5f42",
   "note": "Written by CI when a release tag is pushed: what each published release's archive contains. Do not edit.",
@@ -23,6 +23,54 @@
             "content_digest": "42344e99b039bfb5ee710b2860477b6905d4c324ef6545cd432649e5b8b4a6fd",
             "dependencies": {
               "org.dreamweave.esm": "0.1",
+              "org.dreamweave.openmw-content": "0.1",
+              "org.dreamweave.openmw-install": "0.1",
+              "org.dreamweave.plugin-assets": "0.1",
+              "org.dreamweave.tes3cmd": "0.1"
+            }
+          }
+        }
+      ],
+      "runtimes": {},
+      "platforms": [],
+      "provides": [],
+      "relationships": [],
+      "components": [
+        {
+          "id": "main",
+          "name": "doctor",
+          "path": ".",
+          "required": true,
+          "default": true,
+          "requires": [],
+          "conflicts": [],
+          "suggested_with": []
+        }
+      ],
+      "groups": [],
+      "extensions": {},
+      "critical_extensions": []
+    },
+    {
+      "version": "0.1.1",
+      "locked_from": "3659755d6e1a8fd30e0fdd53a3e2022cc8dc5793",
+      "artifacts": [
+        {
+          "id": "jpk",
+          "format": "jpk",
+          "filename": "org.dreamweave.doctor-0.1.1.jpk",
+          "media_type": "application/vnd.jess.jpk",
+          "size": 42891,
+          "digests": {
+            "sha256": "e0dffe7aa7b050b9854eff70d4e88ffdaa1db24b06d1e5d241b5069b6e9266f0"
+          },
+          "jess": {
+            "package": "org.dreamweave.doctor",
+            "jess_api": "1",
+            "content_digest": "25dfddb616b0b2c2ac20610b47e060f8458dac2db114f39ad20417bf1743d8c8",
+            "dependencies": {
+              "org.dreamweave.esm": "0.1",
+              "org.dreamweave.openmw-config": "4.2",
               "org.dreamweave.openmw-content": "0.1",
               "org.dreamweave.openmw-install": "0.1",
               "org.dreamweave.plugin-assets": "0.1",
